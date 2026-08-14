@@ -54,6 +54,20 @@
                   "performance": "Timing inside a run is a source of nondeterminism."
                 }
               }
+            },
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@quantedge/db": "The engine knows nothing about the DB: data arrives as an already loaded slice.",
+                  "@quantedge/venue": "The engine knows nothing about the venue: the book arrives already decoded.",
+                  "drizzle-orm": "The engine has no I/O.",
+                  "postgres": "The engine has no I/O.",
+                  "@solana/web3.js": "The engine has no network.",
+                  "node:fs": "The engine has no I/O.",
+                  "node:crypto": "Randomness breaks SC-002; use a seeded generator."
+                }
+              }
             }
           }
         }
