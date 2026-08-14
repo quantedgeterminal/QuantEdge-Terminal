@@ -21,6 +21,19 @@ importers:
         specifier: 3.2.7
         version: 3.2.7(@types/node@22.20.2)
 
+  packages/shared:
+    dependencies:
+      zod:
+        specifier: 4.6.2
+        version: 4.6.2
+    devDependencies:
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 3.2.7
+        version: 3.2.7(@types/node@22.20.2)
+
 packages:
 
   '@biomejs/biome@2.5.13':
@@ -629,6 +642,9 @@ packages:
     engines: {node: '>=8'}
     hasBin: true
 
+  zod@4.6.2:
+    resolution: {integrity: sha512-lh5RCAGFa1Cm2hjtNwLQhSs/AsqdWnTQaBER9fEwN/88pSh7KOtJavtBx/0VlkN/uFd61SwYmljLMDAsHlvzBQ==}
+
 snapshots:
 
   '@biomejs/biome@2.5.13':
@@ -1110,3 +1126,5 @@ snapshots:
     dependencies:
       siginfo: 2.0.0
       stackback: 0.0.2
+
+  zod@4.6.2: {}
