@@ -1,0 +1,63 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": ["**", "!**/dist", "!**/node_modules", "!**/.cache"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "lf"
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "asNeeded",
+      "trailingCommas": "all"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "suspicious": {
+        "noExplicitAny": "error"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "warn"
+      },
+      "style": {
+        "noParameterProperties": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["packages/engine/src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": {
+                "deniedGlobals": {
+                  "Date": "The engine must be deterministic (SC-002). Time comes in as an argument.",
+                  "Math": "Math.random breaks reproducibility. If you need randomness, use a seeded generator.",
+                  "fetch": "The engine has no I/O: data arrives as an already loaded slice.",
+                  "process": "Depending on the environment makes a run irreproducible.",
+                  "performance": "Timing inside a run is a source of nondeterminism."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
