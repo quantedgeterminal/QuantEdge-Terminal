@@ -157,9 +157,6 @@ importers:
 
   packages/venue:
     dependencies:
-      '@cks-systems/manifest-sdk':
-        specifier: 0.2.38
-        version: 0.2.38(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(utf-8-validate@6.0.6)
       '@quantedge/shared':
         specifier: workspace:*
         version: link:../shared
@@ -167,6 +164,9 @@ importers:
         specifier: 1.99.0
         version: 1.99.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
     devDependencies:
+      '@cks-systems/manifest-sdk':
+        specifier: 0.2.38
+        version: 0.2.38(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(utf-8-validate@6.0.6)
       typescript:
         specifier: 5.9.3
         version: 5.9.3

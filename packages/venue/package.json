@@ -13,11 +13,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cks-systems/manifest-sdk": "0.2.38",
     "@quantedge/shared": "workspace:*",
     "@solana/web3.js": "1.99.0"
   },
   "devDependencies": {
+    "@cks-systems/manifest-sdk": "0.2.38",
     "typescript": "5.9.3",
     "vitest": "3.2.7"
   }

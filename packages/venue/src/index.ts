@@ -1,2 +1,2 @@
-// Manifest book decoder — T017, channel adapter with the `kind` field — T019.
-export {}
+export * from './manifest.ts'
+// Channel adapter with the `kind` field — T019.
