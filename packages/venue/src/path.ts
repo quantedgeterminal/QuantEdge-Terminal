@@ -21,6 +21,11 @@ export interface DeliveryPath {
   readonly name: string
   readonly kind: PathKind
   subscribe(account: string, onUpdate: (u: AccountUpdate) => void): Promise<Unsubscribe>
+  /**
+   * Channel heartbeat: slots come every ≈400 ms regardless of market activity,
+   * so silence here means a dead channel, while silence in `subscribe` means a quiet market.
+   */
+  watchSlots(onSlot: (slot: bigint) => void): Promise<Unsubscribe>
 }
 
 /** Epoch microseconds from the process's sub-millisecond clock. */
@@ -67,6 +72,11 @@ export class RpcWsPath implements DeliveryPath {
     )
     return () => this.connection.removeAccountChangeListener(id)
   }
+
+  async watchSlots(onSlot: (slot: bigint) => void): Promise<Unsubscribe> {
+    const id = this.connection.onSlotChange((info) => onSlot(BigInt(info.slot)))
+    return () => this.connection.removeSlotChangeListener(id)
+  }
 }
 
 export interface EmulationProfile {
@@ -111,5 +121,10 @@ export class EmulatedPath implements DeliveryPath {
       pending.clear()
       await unsub()
     }
+  }
+
+  /** The emulation's heartbeat is its source's: it has no network of its own. */
+  watchSlots(onSlot: (slot: bigint) => void): Promise<Unsubscribe> {
+    return this.upstream.watchSlots(onSlot)
   }
 }

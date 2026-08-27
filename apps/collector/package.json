@@ -9,16 +9,20 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "dev": "node --watch src/index.ts",
+    "seed": "node --env-file=../../.env src/seed.ts",
+    "dev": "node --env-file=../../.env --watch src/index.ts",
     "start": "node src/index.ts",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@quantedge/db": "workspace:*",
     "@quantedge/shared": "workspace:*",
     "@quantedge/venue": "workspace:*",
-    "pino": "10.3.1"
+    "drizzle-orm": "0.45.2",
+    "pino": "10.3.1",
+    "postgres": "3.4.9",
+    "zod": "4.6.2"
   },
   "devDependencies": {
     "typescript": "5.9.3",

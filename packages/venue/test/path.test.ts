@@ -13,6 +13,7 @@ function fakeReal(name = 'fake-real') {
         handler = undefined
       }
     },
+    watchSlots: async () => async () => {},
   }
   return {
     path,
