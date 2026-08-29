@@ -1,1 +1,46 @@
 @import "tailwindcss";
+
+/* QuantEdge terminal tokens — HSL triplets, used as hsl(var(--qe-*)) */
+:root {
+  --qe-bg: 220 7% 5%;
+  --qe-panel: 220 7% 7%;
+  --qe-text: 210 8% 84%;
+  --qe-dim: 214 6% 46%;
+  --qe-faint: 214 6% 32%;
+  --qe-rule: 220 6% 15%;
+  --qe-accent: 38 62% 58%;
+  --qe-loss: 5 52% 52%;
+  --qe-font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --qe-font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: hsl(var(--qe-bg));
+    color: hsl(var(--qe-text));
+    font-family: var(--qe-font-sans);
+    font-feature-settings:
+      "tnum" 1,
+      "lnum" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .qe-mono {
+    font-family: var(--qe-font-mono);
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  .qe-smallcaps {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+}
