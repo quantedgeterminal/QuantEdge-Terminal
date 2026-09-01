@@ -22,6 +22,7 @@ describe('runBacktest — accounting by hand', () => {
     ...defaultParams(preset('queue-depletion').params),
     notionalQuote: 1000,
     holdMs: 0,
+    maxSlippageBp: 200, // 101 × 1.02 = 103.02 → limit 103
   }
   const strategy = preset('queue-depletion').build(params, market)
   const results = runBacktest({ snapshots, levelsMs: [0, 100], market, strategy })
@@ -79,7 +80,13 @@ describe('presets are latency-sensitive (FR-015) on a synthetic market', () => {
 
   for (const p of presets) {
     it(`${p.id}: trades; at Δ = 0 everything fills; at Δ = 400 slippage is larger, P&L differs`, () => {
-      const params = { ...defaultParams(p.params), notionalQuote: 5000, holdMs: 300 }
+      const params = {
+        ...defaultParams(p.params),
+        notionalQuote: 5000,
+        holdMs: 300,
+        maxSlippageBp: 20, // at a price of ≈1000 that is two steps of the synthetic book
+        ...(p.id === 'momentum-chase' ? { moveBp: 30 } : {}),
+      }
       const results = runBacktest({
         snapshots,
         levelsMs,

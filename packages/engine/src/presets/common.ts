@@ -1,5 +1,5 @@
 import type { Decision, ParamSpec, ParamValues, Strategy, StrategyContext } from '../strategy.ts'
-import { type OrderIntent, PRICE_SCALE, type Side, type Snapshot } from '../types.ts'
+import { BP, type OrderIntent, PRICE_SCALE, type Side, type Snapshot } from '../types.ts'
 
 /**
  * Shared skeleton of the taker presets: a signal opens a position with a taker
@@ -24,14 +24,7 @@ export const commonParams: readonly ParamSpec[] = [
     default: 100_000_000,
   },
   { key: 'holdMs', label: 'Hold time', unit: 'ms', min: 0, max: 3_600_000, default: 800 },
-  {
-    key: 'maxSlippageTicks',
-    label: 'Max slippage',
-    unit: 'ticks',
-    min: 0,
-    max: 1000,
-    default: 2,
-  },
+  { key: 'maxSlippageBp', label: 'Max slippage', unit: 'bp', min: 0, max: 10_000, default: 10 },
 ]
 
 export interface HoldState<S> {
@@ -53,24 +46,24 @@ function abs(v: bigint): bigint {
   return v < 0n ? -v : v
 }
 
+/** The limit is the seen price shifted by `slippageBp` towards worse; rounding in the strategy's favour. */
 function takerOrder(
   view: Snapshot,
   side: Side,
   size: bigint,
-  slippageTicks: bigint,
-  tick: bigint,
+  slippageBp: bigint,
 ): OrderIntent | null {
   const best = side === 'buy' ? view.asks[0] : view.bids[0]
   if (best === undefined || size <= 0n) return null
-  const tolerance = slippageTicks * tick
-  const limitPrice = side === 'buy' ? best.price + tolerance : best.price - tolerance
+  const limitPrice =
+    side === 'buy' ? (best.price * (BP + slippageBp)) / BP : (best.price * (BP - slippageBp)) / BP
   return { side, size, seenPrice: best.price, limitPrice }
 }
 
 export function holdAndExit<S>(signal: Signal<S>, params: ParamValues): Strategy<HoldState<S>> {
   const notional = BigInt(params.notionalQuote ?? 0)
   const holdMs = params.holdMs ?? 0
-  const slippageTicks = BigInt(params.maxSlippageTicks ?? 0)
+  const slippageBp = BigInt(params.maxSlippageBp ?? 0)
   const none = (state: HoldState<S>): Decision<HoldState<S>> => ({ state, orders: [] })
 
   // In a position: wait out the hold, then exit as a taker. An unfilled exit
@@ -80,7 +73,7 @@ export function holdAndExit<S>(signal: Signal<S>, params: ParamValues): Strategy
     const next = state.entryT === entryT ? state : { ...state, entryT }
     if (ctx.now - entryT < holdMs) return none(next)
     const side: Side = ctx.position > 0n ? 'sell' : 'buy'
-    const order = takerOrder(view, side, abs(ctx.position), slippageTicks, ctx.market.tick)
+    const order = takerOrder(view, side, abs(ctx.position), slippageBp)
     return { state: next, orders: order ? [order] : [] }
   }
 
@@ -94,7 +87,7 @@ export function holdAndExit<S>(signal: Signal<S>, params: ParamValues): Strategy
     const best = s.side === 'buy' ? view.asks[0] : view.bids[0]
     if (s.side === null || best === undefined) return none(next)
     const size = sizeForNotional(notional, best.price, ctx.market.lot)
-    const order = takerOrder(view, s.side, size, slippageTicks, ctx.market.tick)
+    const order = takerOrder(view, s.side, size, slippageBp)
     return { state: next, orders: order ? [order] : [] }
   }
 

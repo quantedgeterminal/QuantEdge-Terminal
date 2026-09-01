@@ -47,12 +47,9 @@ export const presets: readonly Preset[] = [
     label: 'Momentum chase',
     summary: 'Chases a mid-price move of N ticks inside a short window.',
     params: [...commonParams, ...momentumParams],
-    build(params, market) {
+    build(params) {
       validateParams(this.params, params)
-      return holdAndExit(
-        momentumSignal(num(params, 'moveTicks'), num(params, 'windowMs'), market.tick),
-        params,
-      )
+      return holdAndExit(momentumSignal(num(params, 'moveBp'), num(params, 'windowMs')), params)
     },
   },
   {

@@ -21,4 +21,4 @@ export {
   validateParams,
 } from './strategy.ts'
 export type { Level, MarketSpec, OrderIntent, Side, Snapshot } from './types.ts'
-export { PRICE_SCALE } from './types.ts'
+export { BP, PRICE_SCALE } from './types.ts'

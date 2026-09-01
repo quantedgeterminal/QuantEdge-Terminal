@@ -5,7 +5,7 @@ export const lvl = (price: number, size: number): Level => ({
   price: px(price),
   size: BigInt(size),
 })
-export const market: MarketSpec = { tick: px(1), lot: 1n }
+export const market: MarketSpec = { lot: 1n }
 
 /** Indexing without `!`: a missing element is a test error, not `undefined`. */
 export function at<T>(arr: readonly T[], i: number): T {

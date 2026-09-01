@@ -42,10 +42,15 @@ export interface OrderIntent {
   readonly limitPrice: bigint
 }
 
-/** Market parameters the strategy needs for sizes and limits. */
+/**
+ * Market parameters the strategy needs. There is no tick here: in Manifest a price is
+ * mantissa × 10^exp without a step, so tolerances are given in basis points of
+ * the seen price, not in ticks.
+ */
 export interface MarketSpec {
-  /** Price step in `price` units (× 10^18). */
-  readonly tick: bigint
-  /** Size step in base atoms. */
+  /** Size step in base atoms; Manifest has no lot — `1n`. */
   readonly lot: bigint
 }
+
+/** Basis points per unit: 1 bp = 1/10 000. */
+export const BP = 10_000n
