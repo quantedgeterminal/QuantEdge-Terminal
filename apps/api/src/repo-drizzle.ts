@@ -1,0 +1,155 @@
+import {
+  backtestRuns,
+  bookUpdates,
+  type Db,
+  datasetCoverage,
+  markets,
+  runResults,
+  sessions,
+} from '@quantedge/db'
+import type { LevelResult } from '@quantedge/engine'
+import { and, asc, eq, gte, lte, sql } from 'drizzle-orm'
+import type { Repo, RunRow } from './repo.ts'
+
+const ms = (d: Date): number => d.getTime()
+
+function toRunRow(r: typeof backtestRuns.$inferSelect): RunRow {
+  return {
+    id: r.id,
+    sessionKey: r.sessionKey,
+    marketId: r.marketId,
+    fromMs: ms(r.fromTs),
+    toMs: ms(r.toTs),
+    preset: r.preset,
+    // In the DB parameters are `unknown` JSON; Zod shapes them on input, here we only read back.
+    params: r.params as Record<string, number>,
+    levelsMs: r.levelsMs,
+    status: r.status,
+    error: r.error,
+    createdAtMs: ms(r.createdAt),
+    finishedAtMs: r.finishedAt === null ? null : ms(r.finishedAt),
+  }
+}
+
+/** `Repo` implementation over Postgres via Drizzle. */
+export function drizzleRepo(db: Db): Repo {
+  return {
+    listMarkets: () => db.select().from(markets).orderBy(asc(markets.id)),
+
+    async getMarket(id) {
+      const [m] = await db.select().from(markets).where(eq(markets.id, id)).limit(1)
+      return m ?? null
+    },
+
+    async coverage(marketId) {
+      const rows = await db
+        .select()
+        .from(datasetCoverage)
+        .where(eq(datasetCoverage.marketId, marketId))
+        .orderBy(asc(datasetCoverage.fromTs))
+      return rows.map((r) => ({
+        fromMs: ms(r.fromTs),
+        toMs: ms(r.toTs),
+        updateCount: r.updateCount,
+      }))
+    },
+
+    async bookUpdates(marketId, fromMs, toMs) {
+      const rows = await db
+        .select({ firstSeenAt: bookUpdates.firstSeenAt, levels: bookUpdates.levels })
+        .from(bookUpdates)
+        .where(
+          and(
+            eq(bookUpdates.marketId, marketId),
+            gte(bookUpdates.firstSeenAt, new Date(fromMs)),
+            lte(bookUpdates.firstSeenAt, new Date(toMs)),
+          ),
+        )
+        .orderBy(asc(bookUpdates.firstSeenAt), asc(bookUpdates.slot), asc(bookUpdates.id))
+      return rows.map((r) => ({ tMs: ms(r.firstSeenAt), levels: r.levels }))
+    },
+
+    async touchSession(key) {
+      await db
+        .insert(sessions)
+        .values({ key })
+        .onConflictDoUpdate({ target: sessions.key, set: { lastSeenAt: sql`now()` } })
+    },
+
+    async createRun(run) {
+      const [row] = await db
+        .insert(backtestRuns)
+        .values({
+          sessionKey: run.sessionKey,
+          marketId: run.marketId,
+          fromTs: new Date(run.fromMs),
+          toTs: new Date(run.toMs),
+          preset: run.preset,
+          params: run.params,
+          levelsMs: [...run.levelsMs],
+          status: 'running',
+        })
+        .returning()
+      if (!row) throw new Error('insert backtest_runs returned no row')
+      return toRunRow(row)
+    },
+
+    async getRun(id) {
+      const [row] = await db.select().from(backtestRuns).where(eq(backtestRuns.id, id)).limit(1)
+      return row ? toRunRow(row) : null
+    },
+
+    async finishRun(id, results) {
+      await db.transaction(async (tx) => {
+        if (results.length > 0) {
+          await tx.insert(runResults).values(
+            results.map((r) => ({
+              runId: id,
+              latencyMs: r.latencyMs,
+              pnl: r.pnl,
+              orders: r.orders,
+              trades: r.trades,
+              unfilled: r.unfilled,
+              slippageSum: r.slippageSum,
+              filledNotional: r.filledNotional,
+              maxDrawdown: r.maxDrawdown,
+              finalPosition: r.finalPosition,
+            })),
+          )
+        }
+        await tx
+          .update(backtestRuns)
+          .set({ status: 'done', finishedAt: new Date() })
+          .where(eq(backtestRuns.id, id))
+      })
+    },
+
+    async failRun(id, error) {
+      await db
+        .update(backtestRuns)
+        .set({ status: 'failed', error, finishedAt: new Date() })
+        .where(eq(backtestRuns.id, id))
+    },
+
+    async results(runId) {
+      const rows = await db
+        .select()
+        .from(runResults)
+        .where(eq(runResults.runId, runId))
+        .orderBy(asc(runResults.latencyMs))
+      return rows.map(
+        (r): LevelResult => ({
+          latencyMs: r.latencyMs,
+          pnl: r.pnl,
+          orders: r.orders,
+          trades: r.trades,
+          unfilled: r.unfilled,
+          slippageSum: r.slippageSum,
+          filledNotional: r.filledNotional,
+          maxDrawdown: r.maxDrawdown,
+          finalPosition: r.finalPosition,
+        }),
+      )
+    },
+  }
+}

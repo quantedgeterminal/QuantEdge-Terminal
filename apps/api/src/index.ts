@@ -1,13 +1,16 @@
+import { randomUUID } from 'node:crypto'
 import { serve } from '@hono/node-server'
-import { Hono } from 'hono'
+import { createDb } from '@quantedge/db'
+import { createApp } from './app.ts'
+import { drizzleRepo } from './repo-drizzle.ts'
 
-const app = new Hono()
+const url = process.env.DATABASE_URL
+if (!url) throw new Error('DATABASE_URL is not set (runtime string, transaction pooler 6543)')
 
-app.get('/health', (c) => c.json({ ok: true }))
+const { db } = createDb(url)
+const app = createApp(drizzleRepo(db), randomUUID)
 
 const port = Number(process.env.PORT ?? 8879)
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`api listening on :${info.port}`)
 })
-
-export type App = typeof app

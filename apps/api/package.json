@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "node --watch src/index.ts",
     "start": "node src/index.ts",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -20,6 +20,7 @@
     "@quantedge/db": "workspace:*",
     "@quantedge/engine": "workspace:*",
     "@quantedge/shared": "workspace:*",
+    "drizzle-orm": "0.45.2",
     "hono": "4.13.7",
     "zod": "4.6.2"
   },

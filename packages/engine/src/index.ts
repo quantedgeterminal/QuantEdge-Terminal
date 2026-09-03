@@ -14,6 +14,7 @@ export { type LevelResult, type RunInput, runBacktest } from './run.ts'
 export {
   type Decision,
   defaultParams,
+  ParamError,
   type ParamSpec,
   type ParamValues,
   type Strategy,

@@ -1,5 +1,6 @@
 import {
   defaultParams,
+  ParamError,
   type ParamSpec,
   type ParamValues,
   type Strategy,
@@ -24,7 +25,7 @@ export interface Preset {
 
 function num(params: ParamValues, key: string): number {
   const v = params[key]
-  if (v === undefined) throw new RangeError(`${key}: parameter is missing`)
+  if (v === undefined) throw new ParamError(key, 'parameter is missing')
   return v
 }
 

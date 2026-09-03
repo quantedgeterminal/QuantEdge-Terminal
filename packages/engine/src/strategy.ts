@@ -36,21 +36,28 @@ export interface ParamSpec {
 
 export type ParamValues = Readonly<Record<string, number>>
 
-/**
- * Parameter check against the spec: integers within bounds. The error names
- * the field — that is what FR-016 requires to show the user.
- */
+/** A parameter error with the field name — what FR-016 requires to show the user. */
+export class ParamError extends RangeError {
+  readonly key: string
+  constructor(key: string, message: string) {
+    super(`${key}: ${message}`)
+    this.name = 'ParamError'
+    this.key = key
+  }
+}
+
+/** Parameter check against the spec: integers within bounds, no extra keys. */
 export function validateParams(specs: readonly ParamSpec[], values: ParamValues): void {
   for (const spec of specs) {
     const v = values[spec.key]
-    if (v === undefined) throw new RangeError(`${spec.key}: parameter is missing`)
-    if (!Number.isInteger(v)) throw new RangeError(`${spec.key}: must be an integer, got ${v}`)
+    if (v === undefined) throw new ParamError(spec.key, 'parameter is missing')
+    if (!Number.isInteger(v)) throw new ParamError(spec.key, `must be an integer, got ${v}`)
     if (v < spec.min || v > spec.max) {
-      throw new RangeError(`${spec.key}: ${v} is out of bounds ${spec.min}…${spec.max} ${spec.unit}`)
+      throw new ParamError(spec.key, `${v} is out of bounds ${spec.min}…${spec.max} ${spec.unit}`)
     }
   }
   for (const key of Object.keys(values)) {
-    if (!specs.some((s) => s.key === key)) throw new RangeError(`${key}: unknown parameter`)
+    if (!specs.some((s) => s.key === key)) throw new ParamError(key, 'unknown parameter')
   }
 }
 

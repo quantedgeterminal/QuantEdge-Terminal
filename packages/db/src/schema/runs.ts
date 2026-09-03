@@ -60,6 +60,8 @@ export const backtestRuns = pgTable(
     params: jsonb().$type<PresetParams>().notNull(),
     levelsMs: integer('levels_ms').array().notNull(),
     status: runStatus().notNull().default('queued'),
+    /** Reason for `failed` — user-facing text, not a stack trace. */
+    error: text(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     finishedAt: timestamp('finished_at', { withTimezone: true }),
   },
@@ -79,10 +81,16 @@ export const runResults = pgTable(
       .references(() => backtestRuns.id, { onDelete: 'cascade' }),
     latencyMs: integer('latency_ms').notNull(),
     pnl: bigint({ mode: 'bigint' }).notNull(),
+    /** All orders sent; `trades` are those filled at least partially. */
+    orders: integer().notNull(),
     trades: integer().notNull(),
     unfilled: integer().notNull(),
     slippageSum: bigint('slippage_sum', { mode: 'bigint' }).notNull(),
+    /** Filled turnover — the denominator for slippage in bp. */
+    filledNotional: bigint('filled_notional', { mode: 'bigint' }).notNull(),
     maxDrawdown: bigint('max_drawdown', { mode: 'bigint' }).notNull(),
+    /** Position at the end of the period in base atoms; P&L already includes its mark at mid. */
+    finalPosition: bigint('final_position', { mode: 'bigint' }).notNull(),
   },
   (t) => [primaryKey({ columns: [t.runId, t.latencyMs] })],
 )
