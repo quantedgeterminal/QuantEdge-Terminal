@@ -1,7 +1,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { DemoStrip, Shell, Toggle } from '../components/Shell'
-import { type BookRow, book, type InstrumentFigure, instrument, market } from '../lib/mockSource'
+import Banner from '../components/Banner.tsx'
+import { DemoStrip, Shell, Toggle } from '../components/Shell.tsx'
+import {
+  type BookRow,
+  banner,
+  book,
+  type InstrumentFigure,
+  instrument,
+  market,
+} from '../lib/mockSource.ts'
 
 const maxAsk = Math.max(...book.asks.map((r) => r.cumulative))
 const maxBid = Math.max(...book.bids.map((r) => r.cumulative))
@@ -98,6 +106,7 @@ export default function TerminalScreen() {
 
   return (
     <Shell>
+      <Banner text={banner} />
       <main className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6">
         <div className="mb-5 flex items-baseline justify-between gap-4">
           <h1 className="qe-mono text-[13px] text-[hsl(var(--qe-text))]">{market.name}</h1>

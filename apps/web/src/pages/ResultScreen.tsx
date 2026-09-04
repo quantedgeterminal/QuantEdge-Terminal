@@ -1,50 +1,55 @@
-import { useState } from 'react'
-import { Link } from 'react-router'
-import LatencyLadder from '../components/LatencyLadder'
-import { DemoStrip, Shell, Toggle } from '../components/Shell'
-import {
-  costLabel,
-  emptyRun,
-  type LadderLevel,
-  mainRun,
-  market,
-  newRunLabel,
-  tableColumns,
-  tableFootnote,
-} from '../lib/mockSource'
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router'
+import { ApiError, api } from '../api/client.ts'
+import type { LevelResult, Run } from '../api/schemas.ts'
+import LatencyLadder, { type LadderLevel } from '../components/LatencyLadder.tsx'
+import { Shell } from '../components/Shell.tsx'
+import { formatAtoms, formatCount, formatDuration, formatRange, formatSigned } from '../money.ts'
 
-function HeaderLine({ line }: { line: string }) {
-  const [name, ...rest] = line.split(' · ')
-  return (
-    <p className="qe-mono mb-5 text-[11px] leading-[1.6] text-[hsl(var(--qe-dim))]">
-      <Link
-        to={`/markets/${market.id}`}
-        className="text-[hsl(var(--qe-text))] underline underline-offset-4"
-      >
-        {name} · {rest[0]}
-      </Link>
-      {rest.length > 1 ? ` · ${rest.slice(1).join(' · ')}` : ''}
-    </p>
-  )
+const COLUMNS = ['Delay', 'P&L', 'Trades', 'Unfilled', 'Avg slippage', 'Max drawdown'] as const
+
+const FOOTNOTE =
+  'Same data, same parameters at every level. The only thing that differs between rows is when the strategy saw the book. Slippage is signed against the price the strategy saw; the limit turns worse prices into unfilled orders, so read slippage together with the unfilled share.'
+
+/** Quote currency symbol from the market label "BASE/QUOTE". */
+function quoteSymbol(label: string): string {
+  return label.split('/')[1] ?? 'quote'
 }
 
-function Rows({ levels }: { levels: LadderLevel[] }) {
-  const cells = (l: LadderLevel) => [
-    l.delayLabel,
-    l.pnlLabel,
-    l.trades,
-    l.unfilled,
-    l.slippage,
-    l.drawdown,
-  ]
+/** A number for bar geometry only; no digit of it is rendered. */
+function geometry(atoms: string, decimals: number): number {
+  return Number(atoms) / 10 ** decimals
+}
 
+function toLadder(r: LevelResult, decimals: number, quote: string): LadderLevel {
+  return {
+    delayLabel: `${r.latencyMs} ms`,
+    pnl: geometry(r.pnl, decimals),
+    pnlLabel: `${formatSigned(r.pnl, decimals)} ${quote}`,
+    loss: r.pnl.startsWith('-'),
+  }
+}
+
+function cells(r: LevelResult, decimals: number, quote: string): string[] {
+  return [
+    `${r.latencyMs} ms`,
+    `${formatSigned(r.pnl, decimals)} ${quote}`,
+    formatCount(r.trades),
+    `${r.unfilledPct}% (${formatCount(r.unfilled)} of ${formatCount(r.orders)})`,
+    r.avgSlippageBp === null ? '—' : `${r.avgSlippageBp.toFixed(2)} bp`,
+    `${formatAtoms(r.maxDrawdown, decimals)} ${quote}`,
+  ]
+}
+
+function Rows({ run }: { run: Run }) {
+  const decimals = run.market.quoteDecimals
+  const quote = quoteSymbol(run.market.label)
   return (
     <>
-      {/* table, md and up */}
       <table className="hidden w-full border-collapse md:table">
         <thead>
           <tr>
-            {tableColumns.map((c, i) => (
+            {COLUMNS.map((c, i) => (
               <th
                 key={c}
                 className={`qe-smallcaps border-b border-[hsl(var(--qe-rule))] pb-2 text-[10px] font-normal text-[hsl(var(--qe-dim))] ${
@@ -57,17 +62,17 @@ function Rows({ levels }: { levels: LadderLevel[] }) {
           </tr>
         </thead>
         <tbody>
-          {levels.map((l) => (
+          {run.results.map((r) => (
             <tr
-              key={l.delayLabel}
+              key={r.latencyMs}
               className="border-b border-[hsl(var(--qe-rule))]"
               style={{
-                color: l.loss ? 'hsl(var(--qe-loss))' : 'hsl(var(--qe-text))',
+                color: r.pnl.startsWith('-') ? 'hsl(var(--qe-loss))' : 'hsl(var(--qe-text))',
               }}
             >
-              {cells(l).map((v, i) => (
+              {cells(r, decimals, quote).map((v, i) => (
                 <td
-                  key={tableColumns[i]}
+                  key={COLUMNS[i]}
                   className={`qe-mono py-[7px] text-[13px] ${i === 0 ? 'text-left' : 'text-right'}`}
                 >
                   {v}
@@ -78,22 +83,19 @@ function Rows({ levels }: { levels: LadderLevel[] }) {
         </tbody>
       </table>
 
-      {/* stacked definition lists, below md */}
       <div className="md:hidden">
-        {levels.map((l) => (
+        {run.results.map((r) => (
           <div
-            key={l.delayLabel}
+            key={r.latencyMs}
             className="border-b border-[hsl(var(--qe-rule))] py-3"
-            style={{
-              color: l.loss ? 'hsl(var(--qe-loss))' : 'hsl(var(--qe-text))',
-            }}
+            style={{ color: r.pnl.startsWith('-') ? 'hsl(var(--qe-loss))' : 'hsl(var(--qe-text))' }}
           >
-            <p className="qe-mono mb-1 text-[13px]">{l.delayLabel}</p>
+            <p className="qe-mono mb-1 text-[13px]">{r.latencyMs} ms</p>
             <dl className="space-y-[2px]">
-              {tableColumns.slice(1).map((c, i) => (
+              {COLUMNS.slice(1).map((c, i) => (
                 <div key={c} className="flex items-baseline justify-between gap-4">
                   <dt className="text-[11px] text-[hsl(var(--qe-dim))]">{c}</dt>
-                  <dd className="qe-mono text-[13px]">{cells(l)[i + 1]}</dd>
+                  <dd className="qe-mono text-[13px]">{cells(r, decimals, quote)[i + 1]}</dd>
                 </div>
               ))}
             </dl>
@@ -104,9 +106,142 @@ function Rows({ levels }: { levels: LadderLevel[] }) {
   )
 }
 
+function costSentence(run: Run): string {
+  const c = run.cost
+  if (c === null) {
+    return 'Undefined: fewer than two delay levels where most orders filled, so there is no slope to take.'
+  }
+  const base = `Slope of P&L between ${c.fromMs} ms and ${c.toMs} ms.`
+  if (c.excludedMs.length === 0) return base
+  return `${base} Levels ${c.excludedMs.join(', ')} ms are left out: at least half the orders there never filled, so the strategy stops being the same strategy and the fit stops before them.`
+}
+
+function Loaded({ run, presetLabel }: { run: Run; presetLabel: string }) {
+  const decimals = run.market.quoteDecimals
+  const quote = quoteSymbol(run.market.label)
+  const header = [
+    presetLabel,
+    formatRange(run.from, run.to),
+    formatDuration(run.from, run.to),
+    `run-${run.id.slice(0, 4)}`,
+  ].join(' · ')
+  const anyTrades = run.results.some((r) => r.trades > 0)
+
+  return (
+    <>
+      <p className="qe-mono mb-5 text-[11px] leading-[1.6] text-[hsl(var(--qe-dim))]">
+        <span className="text-[hsl(var(--qe-text))]">{run.market.label} · Manifest</span> · {header}
+      </p>
+
+      {run.status === 'failed' ? (
+        <Section>
+          <Big dim>Run failed</Big>
+          <Sentence>{run.error ?? 'No reason was recorded.'}</Sentence>
+        </Section>
+      ) : !anyTrades ? (
+        <Section>
+          <Big dim>0 trades — nothing to price</Big>
+          <Sentence>
+            The strategy never entered in this period at any delay. P&L is not zero; it is
+            undefined.
+          </Sentence>
+        </Section>
+      ) : (
+        <>
+          <Section>
+            <p className="qe-smallcaps mb-2 text-[10px] text-[hsl(var(--qe-dim))]">
+              Cost of 100 ms
+            </p>
+            {run.cost ? (
+              <Big loss={run.cost.costPer100Ms.startsWith('-')}>
+                {formatSigned(run.cost.costPer100Ms, decimals)} {quote} per 100 ms
+              </Big>
+            ) : (
+              <Big dim>—</Big>
+            )}
+            <Sentence>{costSentence(run)}</Sentence>
+          </Section>
+
+          <section className="mt-6 border-t border-[hsl(var(--qe-rule))] pt-4">
+            <LatencyLadder
+              levels={run.results.map((r) => toLadder(r, decimals, quote))}
+              segment={
+                run.cost
+                  ? {
+                      fromIndex: run.results.findIndex((r) => r.latencyMs === run.cost?.fromMs),
+                      toIndex: run.results.findIndex((r) => r.latencyMs === run.cost?.toMs),
+                      label: `${formatSigned(run.cost.costPer100Ms, decimals)} ${quote} per 100 ms`,
+                    }
+                  : null
+              }
+            />
+          </section>
+
+          <section className="mt-6">
+            <Rows run={run} />
+            <p className="mt-3 max-w-[820px] text-[11px] leading-[1.55] text-[hsl(var(--qe-dim))]">
+              {FOOTNOTE}
+            </p>
+          </section>
+        </>
+      )}
+    </>
+  )
+}
+
+function Section({ children }: { children: React.ReactNode }) {
+  return <section className="border-t border-[hsl(var(--qe-rule))] pt-4">{children}</section>
+}
+
+function Big({
+  children,
+  dim = false,
+  loss = false,
+}: {
+  children: React.ReactNode
+  dim?: boolean
+  loss?: boolean
+}) {
+  const color = dim
+    ? 'text-[hsl(var(--qe-dim))]'
+    : loss
+      ? 'text-[hsl(var(--qe-loss))]'
+      : 'text-[hsl(var(--qe-accent))]'
+  return <p className={`qe-mono text-[28px] leading-[1.1] sm:text-[44px] ${color}`}>{children}</p>
+}
+
+function Sentence({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mt-3 max-w-[720px] text-[12px] leading-[1.55] text-[hsl(var(--qe-dim))]">
+      {children}
+    </p>
+  )
+}
+
 export default function ResultScreen() {
-  const [showEmpty, setShowEmpty] = useState(false)
-  const run = showEmpty ? emptyRun : mainRun
+  const { runId } = useParams()
+  const [run, setRun] = useState<Run | null>(null)
+  const [presetLabel, setPresetLabel] = useState<string>('')
+  const [problem, setProblem] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!runId) return
+    let alive = true
+    Promise.all([api.run(runId), api.presets()])
+      .then(([r, presets]) => {
+        if (!alive) return
+        setRun(r)
+        setPresetLabel(presets.find((p) => p.id === r.preset)?.label ?? r.preset)
+      })
+      .catch((e: unknown) => {
+        if (!alive) return
+        if (e instanceof ApiError && e.status === 404) setProblem('No such run in this session.')
+        else setProblem(e instanceof Error ? e.message : 'Unknown error.')
+      })
+    return () => {
+      alive = false
+    }
+  }, [runId])
 
   return (
     <Shell>
@@ -117,56 +252,16 @@ export default function ResultScreen() {
             to="/"
             className="qe-mono text-[12px] text-[hsl(var(--qe-accent))] underline underline-offset-4"
           >
-            {newRunLabel}
+            New run
           </Link>
         </div>
-
-        <HeaderLine line={run.headerLine} />
-
-        {run.cost ? (
-          <>
-            <section className="border-t border-[hsl(var(--qe-rule))] pt-4">
-              <p className="qe-smallcaps mb-2 text-[10px] text-[hsl(var(--qe-dim))]">{costLabel}</p>
-              <p className="qe-mono text-[32px] leading-[1.1] text-[hsl(var(--qe-loss))] sm:text-[44px]">
-                {run.cost.figure}
-              </p>
-              <p className="mt-3 max-w-[720px] text-[12px] leading-[1.55] text-[hsl(var(--qe-dim))]">
-                {run.cost.sentence}
-              </p>
-            </section>
-
-            <section className="mt-6 border-t border-[hsl(var(--qe-rule))] pt-4">
-              <LatencyLadder
-                levels={run.levels}
-                segment={{
-                  fromIndex: run.cost.fromIndex,
-                  toIndex: run.cost.toIndex,
-                  label: run.cost.slopeLabel,
-                }}
-              />
-            </section>
-
-            <section className="mt-6">
-              <Rows levels={run.levels} />
-              <p className="mt-3 max-w-[820px] text-[11px] leading-[1.55] text-[hsl(var(--qe-dim))]">
-                {tableFootnote}
-              </p>
-            </section>
-          </>
+        {problem ? (
+          <p className="qe-mono text-[12px] text-[hsl(var(--qe-loss))]">{problem}</p>
+        ) : run === null ? (
+          <p className="qe-mono text-[12px] text-[hsl(var(--qe-dim))]">Loading run…</p>
         ) : (
-          <section className="border-t border-[hsl(var(--qe-rule))] pt-8">
-            <p className="qe-mono text-[22px] text-[hsl(var(--qe-dim))] sm:text-[28px]">
-              {run.empty.headline}
-            </p>
-            <p className="mt-3 max-w-[640px] text-[12px] leading-[1.55] text-[hsl(var(--qe-dim))]">
-              {run.empty.sentence}
-            </p>
-          </section>
+          <Loaded run={run} presetLabel={presetLabel} />
         )}
-
-        <DemoStrip>
-          <Toggle label="Show empty run" on={showEmpty} onChange={setShowEmpty} />
-        </DemoStrip>
       </main>
     </Shell>
   )

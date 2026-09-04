@@ -32,7 +32,16 @@ export function createApp(repo: Repo, newSessionKey: () => string) {
 
   app.get('/markets', async (c) => {
     const rows = await repo.listMarkets()
-    return c.json(rows.map((m) => ({ id: m.id, label: m.label, venue: m.venue, active: m.active })))
+    return c.json(
+      rows.map((m) => ({
+        id: m.id,
+        label: m.label,
+        venue: m.venue,
+        active: m.active,
+        baseDecimals: m.baseDecimals,
+        quoteDecimals: m.quoteDecimals,
+      })),
+    )
   })
 
   app.get('/markets/:id/coverage', zValidator('param', MarketIdParam), async (c) => {

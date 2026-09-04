@@ -1,4 +1,10 @@
-import type { LadderLevel } from '../lib/mockSource'
+/** A ladder level: `pnl` is a number for geometry only, `pnlLabel` is what renders. */
+export interface LadderLevel {
+  readonly delayLabel: string
+  readonly pnl: number
+  readonly pnlLabel: string
+  readonly loss: boolean
+}
 
 interface Props {
   levels: LadderLevel[]
@@ -9,7 +15,7 @@ interface Props {
 const W = 960
 const H = 300
 const PLOT_TOP = 46
-const PLOT_BOTTOM = 226
+const PLOT_BOTTOM = 204
 const AXIS_Y = 258
 const FIRST_X = 96
 const STEP = 192

@@ -2,8 +2,8 @@ import { PRICE_SCALE } from '@quantedge/engine'
 import { type Level, packLevels } from '@quantedge/shared'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../src/app.ts'
+import { MemoryRepo } from '../src/memory-repo.ts'
 import type { BookRow } from '../src/repo.ts'
-import { MemoryRepo } from './memory-repo.ts'
 
 const T0 = Date.parse('2026-09-01T08:00:00Z')
 const HOUR = 3_600_000
@@ -114,7 +114,16 @@ describe('reference data', () => {
       id: number
       label: string
     }[]
-    expect(markets).toEqual([{ id: 1, label: 'cbBTC/USDC', venue: 'manifest', active: true }])
+    expect(markets).toEqual([
+      {
+        id: 1,
+        label: 'cbBTC/USDC',
+        venue: 'manifest',
+        active: true,
+        baseDecimals: 8,
+        quoteDecimals: 6,
+      },
+    ])
     const cov = (await (await s.app.request('/markets/1/coverage')).json()) as { from: string }[]
     expect(cov.map((c) => c.from)).toEqual([iso(T0), iso(T0 + 8 * HOUR)])
     expect((await s.app.request('/markets/9/coverage')).status).toBe(404)

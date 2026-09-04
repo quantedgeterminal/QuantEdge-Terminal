@@ -46,7 +46,7 @@ export const presets: readonly Preset[] = [
   {
     id: 'momentum-chase',
     label: 'Momentum chase',
-    summary: 'Chases a mid-price move of N ticks inside a short window.',
+    summary: 'Chases a mid-price move of N basis points inside a short window.',
     params: [...commonParams, ...momentumParams],
     build(params) {
       validateParams(this.params, params)
