@@ -2,6 +2,7 @@ import { zValidator } from '@hono/zod-validator'
 import { ParamError, presets } from '@quantedge/engine'
 import { Hono } from 'hono'
 import { missingRanges } from './coverage.ts'
+import { aggregateLatency } from './latency.ts'
 import type { Repo } from './repo.ts'
 import { executeRun, mergeParams, runDto } from './runs.ts'
 import { MarketIdParam, RunIdParam, RunRequest, SessionKey } from './schemas.ts'
@@ -13,7 +14,7 @@ const SESSION_HEADER = 'X-Session-Key'
  * is tested in memory and runs on Postgres. No route reads the request
  * body without going through Zod.
  */
-export function createApp(repo: Repo, newSessionKey: () => string) {
+export function createApp(repo: Repo, newSessionKey: () => string, now: () => number = Date.now) {
   const app = new Hono()
 
   app.get('/health', (c) => c.json({ ok: true }))
@@ -56,6 +57,18 @@ export function createApp(repo: Repo, newSessionKey: () => string) {
         updateCount: r.updateCount,
       })),
     )
+  })
+
+  /** Differential-latency window (SC-005): the last 60 s by `first_seen_at`. */
+  const LATENCY_WINDOW_SEC = 60
+
+  app.get('/markets/:id/latency', zValidator('param', MarketIdParam), async (c) => {
+    const { id } = c.req.valid('param')
+    const market = await repo.getMarket(id)
+    if (!market) return c.json({ error: 'market_not_found' }, 404)
+    const sinceMs = now() - LATENCY_WINDOW_SEC * 1000
+    const [paths, rows] = await Promise.all([repo.paths(), repo.arrivalsSince(id, sinceMs)])
+    return c.json(aggregateLatency(paths, rows, LATENCY_WINDOW_SEC))
   })
 
   /** Session key from the header; missing or malformed — 401. */

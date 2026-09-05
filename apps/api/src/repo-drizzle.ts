@@ -1,8 +1,10 @@
 import {
+  arrivals,
   backtestRuns,
   bookUpdates,
   type Db,
   datasetCoverage,
+  deliveryPaths,
   markets,
   runResults,
   sessions,
@@ -67,6 +69,32 @@ export function drizzleRepo(db: Db): Repo {
         )
         .orderBy(asc(bookUpdates.firstSeenAt), asc(bookUpdates.slot), asc(bookUpdates.id))
       return rows.map((r) => ({ tMs: ms(r.firstSeenAt), levels: r.levels }))
+    },
+
+    paths: () =>
+      db
+        .select({ id: deliveryPaths.id, name: deliveryPaths.name, kind: deliveryPaths.kind })
+        .from(deliveryPaths)
+        .orderBy(asc(deliveryPaths.id)),
+
+    async arrivalsSince(marketId, sinceMs) {
+      const rows = await db
+        .select({
+          bookUpdateId: arrivals.bookUpdateId,
+          pathId: arrivals.pathId,
+          // timestamp(6) → microseconds since the epoch; going through Date would lose three digits.
+          receivedAtUs: sql<string>`(extract(epoch from ${arrivals.receivedAt}) * 1000000)::bigint`,
+        })
+        .from(arrivals)
+        .innerJoin(bookUpdates, eq(arrivals.bookUpdateId, bookUpdates.id))
+        .where(
+          and(eq(bookUpdates.marketId, marketId), gte(bookUpdates.firstSeenAt, new Date(sinceMs))),
+        )
+      return rows.map((r) => ({
+        bookUpdateId: r.bookUpdateId,
+        pathId: r.pathId,
+        receivedAtUs: BigInt(r.receivedAtUs),
+      }))
     },
 
     async touchSession(key) {

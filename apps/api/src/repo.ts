@@ -1,4 +1,5 @@
 import type { LevelResult } from '@quantedge/engine'
+import type { ArrivalRow, PathRow } from './latency.ts'
 
 /**
  * Boundary between routes and storage. Routes know only this interface: in tests
@@ -61,6 +62,10 @@ export interface Repo {
   coverage(marketId: number): Promise<CoverageRow[]>
   /** Events in `[fromMs, toMs]` in time order; read once per run. */
   bookUpdates(marketId: number, fromMs: number, toMs: number): Promise<BookRow[]>
+  /** All delivery channels from the table — with `kind`, because channel data never goes out without it. */
+  paths(): Promise<PathRow[]>
+  /** Arrivals of the market's events registered after `sinceMs` (by `first_seen_at`). */
+  arrivalsSince(marketId: number, sinceMs: number): Promise<ArrivalRow[]>
 
   touchSession(key: string): Promise<void>
   createRun(run: NewRun): Promise<RunRow>

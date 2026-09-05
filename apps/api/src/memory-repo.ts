@@ -1,4 +1,5 @@
 import type { LevelResult } from '@quantedge/engine'
+import type { ArrivalRow, PathRow } from './latency.ts'
 import type { BookRow, CoverageRow, MarketRow, NewRun, Repo, RunRow } from './repo.ts'
 
 /** In-memory `Repo` for route tests: the same behaviour, no Postgres. */
@@ -6,6 +7,9 @@ export class MemoryRepo implements Repo {
   readonly markets: MarketRow[] = []
   readonly coverageRows = new Map<number, CoverageRow[]>()
   readonly books = new Map<number, BookRow[]>()
+  readonly pathRows: PathRow[] = []
+  /** Arrivals: market → rows; `bookUpdateId` here is the event index, the event's `tMs` is kept apart. */
+  readonly arrivalRows = new Map<number, (ArrivalRow & { tMs: number })[]>()
   readonly sessions = new Set<string>()
   readonly runs = new Map<string, RunRow>()
   readonly resultRows = new Map<string, LevelResult[]>()
@@ -27,6 +31,14 @@ export class MemoryRepo implements Repo {
     return (this.books.get(marketId) ?? [])
       .filter((r) => r.tMs >= fromMs && r.tMs <= toMs)
       .sort((a, b) => a.tMs - b.tMs)
+  }
+  async paths() {
+    return [...this.pathRows]
+  }
+  async arrivalsSince(marketId: number, sinceMs: number) {
+    return (this.arrivalRows.get(marketId) ?? [])
+      .filter((r) => r.tMs >= sinceMs)
+      .map(({ bookUpdateId, pathId, receivedAtUs }) => ({ bookUpdateId, pathId, receivedAtUs }))
   }
   async touchSession(key: string) {
     this.sessions.add(key)
