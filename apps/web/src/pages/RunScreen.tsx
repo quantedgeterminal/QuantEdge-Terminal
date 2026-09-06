@@ -173,7 +173,7 @@ export default function RunScreen() {
                   {markets.length} {markets.length === 1 ? 'market' : 'markets'} available
                 </span>
                 <Link
-                  to="/markets/sol-usdc"
+                  to={`/markets/${marketId}`}
                   className="qe-mono ml-auto text-[12px] text-[hsl(var(--qe-accent))] underline underline-offset-4"
                 >
                   Open terminal

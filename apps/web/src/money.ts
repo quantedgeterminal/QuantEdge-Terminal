@@ -45,3 +45,32 @@ export function formatDuration(fromIso: string, toIso: string): string {
 export function formatCount(n: number): string {
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
+
+/**
+ * Book price: `quote atoms per base atom × 10^18` (u128 string) → quote per
+ * unit of the base asset with `digits` digits. All arithmetic in BigInt.
+ */
+export function formatPrice(
+  priceX18: string,
+  baseDecimals: number,
+  quoteDecimals: number,
+  digits: number,
+): string {
+  const scaled =
+    (BigInt(priceX18) * 10n ** BigInt(baseDecimals + digits)) /
+    (10n ** BigInt(quoteDecimals) * 10n ** 18n)
+  return formatAtoms(scaled.toString(), digits, digits)
+}
+
+/** Size in base atoms → units of the base asset. */
+export function formatSize(atoms: string, baseDecimals: number, digits: number): string {
+  return formatAtoms(atoms, baseDecimals, digits)
+}
+
+/** How many digits to show for a price of this magnitude. */
+export function priceDigits(priceX18: string, baseDecimals: number, quoteDecimals: number): number {
+  const whole = formatPrice(priceX18, baseDecimals, quoteDecimals, 0).replace(/,/g, '')
+  if (whole.length >= 4) return 2
+  if (whole.length >= 2) return 4
+  return 6
+}

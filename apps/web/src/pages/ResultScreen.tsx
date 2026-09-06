@@ -130,7 +130,13 @@ function Loaded({ run, presetLabel }: { run: Run; presetLabel: string }) {
   return (
     <>
       <p className="qe-mono mb-5 text-[11px] leading-[1.6] text-[hsl(var(--qe-dim))]">
-        <span className="text-[hsl(var(--qe-text))]">{run.market.label} · Manifest</span> · {header}
+        <Link
+          to={`/markets/${run.market.id}`}
+          className="text-[hsl(var(--qe-text))] underline underline-offset-4"
+        >
+          {run.market.label} · Manifest
+        </Link>{' '}
+        · {header}
       </p>
 
       {run.status === 'failed' ? (

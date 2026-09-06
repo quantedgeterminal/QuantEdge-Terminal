@@ -19,7 +19,7 @@ export const App = () => (
       <Routes>
         <Route path="/" element={<RunScreen />} />
         <Route path="/runs/:runId" element={<ResultScreen />} />
-        <Route path="/markets/sol-usdc" element={<TerminalScreen />} />
+        <Route path="/markets/:marketId" element={<TerminalScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

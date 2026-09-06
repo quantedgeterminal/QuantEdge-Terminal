@@ -81,6 +81,39 @@ repo.coverageRows.set(
   })),
 )
 
+// Live tail for the terminal: a new event every second, two "real" channels lagging 20–80 ms.
+repo.pathRows.push(
+  { id: 1, name: 'helius', kind: 'real' },
+  { id: 2, name: 'alchemy', kind: 'real' },
+)
+const live = rng(99)
+let liveAsk = START_PRICE
+let liveId = 1_000_000n
+setInterval(() => {
+  const now = Date.now()
+  const r = live()
+  if (r < 0.3) liveAsk += STEP
+  else if (r < 0.6) liveAsk -= STEP
+  const size = () => 200_000 + Math.floor(live() * 2_000_000)
+  const asks = Array.from({ length: 10 }, (_, k) => ({
+    price: liveAsk + BigInt(k) * STEP,
+    size: BigInt(size()),
+  }))
+  const bids = Array.from({ length: 10 }, (_, k) => ({
+    price: liveAsk - BigInt(k + 1) * STEP,
+    size: BigInt(size()),
+  }))
+  books.push({ tMs: now, levels: packLevels({ bids, asks }) })
+  const lagMs = 20 + Math.floor(live() * 60)
+  const arrivals = repo.arrivalRows.get(1) ?? []
+  arrivals.push(
+    { bookUpdateId: liveId, pathId: 1, receivedAtUs: BigInt(now) * 1000n, tMs: now },
+    { bookUpdateId: liveId, pathId: 2, receivedAtUs: BigInt(now + lagMs) * 1000n, tMs: now },
+  )
+  repo.arrivalRows.set(1, arrivals.slice(-400))
+  liveId++
+}, 1000)
+
 const app = createApp(repo, randomUUID)
 const port = Number(process.env.PORT ?? 8879)
 serve({ fetch: app.fetch, port }, (info) => {

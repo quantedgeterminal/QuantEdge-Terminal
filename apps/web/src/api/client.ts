@@ -1,5 +1,13 @@
 import { z } from 'zod'
-import { CoverageSegment, Market, MissingRanges, ParamProblem, Preset, Run } from './schemas.ts'
+import {
+  CoverageSegment,
+  LatencySummary,
+  Market,
+  MissingRanges,
+  ParamProblem,
+  Preset,
+  Run,
+} from './schemas.ts'
 
 const BASE = import.meta.env.VITE_API_URL ?? '/api'
 const SESSION_STORAGE_KEY = 'quantedge.session'
@@ -90,6 +98,9 @@ export const api = {
   markets: () => get('/markets', z.array(Market)),
   coverage: (marketId: number) => get(`/markets/${marketId}/coverage`, z.array(CoverageSegment)),
   presets: () => get('/presets', z.array(Preset)),
+  market: (id: number) =>
+    get('/markets', z.array(Market)).then((ms) => ms.find((m) => m.id === id) ?? null),
+  latency: (marketId: number) => get(`/markets/${marketId}/latency`, LatencySummary),
   run: (id: string) => get(`/runs/${id}`, Run, true),
 
   async startRun(body: {

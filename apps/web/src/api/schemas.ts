@@ -2,6 +2,29 @@ import { z } from 'zod'
 
 /** API response shapes. Types are inferred from here, not written by hand (rule 7). */
 
+/** Channel mark (FR-004): the same values as in the DB and in `@quantedge/shared`. */
+export const PathKind = z.enum(['real', 'emulated'])
+export type PathKind = z.infer<typeof PathKind>
+
+export const PathLatency = z.object({
+  pathId: z.int(),
+  name: z.string(),
+  kind: PathKind,
+  p50Ms: z.int().nullable(),
+  p95Ms: z.int().nullable(),
+  sampleCount: z.int(),
+  laterPct: z.int().nullable(),
+})
+export type PathLatency = z.infer<typeof PathLatency>
+
+export const LatencySummary = z.object({
+  windowSec: z.int(),
+  paths: z.array(PathLatency),
+  measurable: z.boolean(),
+  sharedEvents: z.int(),
+})
+export type LatencySummary = z.infer<typeof LatencySummary>
+
 export const Market = z.object({
   id: z.int(),
   label: z.string(),

@@ -2,10 +2,9 @@ import { renderToString } from 'react-dom/server'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { App, PROVENANCE } from '../src/App.tsx'
-import { banner as prototypeBanner } from '../src/lib/mockSource.ts'
 
 // Every reachable screen, by route.
-const routes = ['/', '/runs/00000000-0000-4000-8000-000000000001', '/markets/sol-usdc']
+const routes = ['/', '/runs/00000000-0000-4000-8000-000000000001', '/markets/1']
 
 function render(route: string): string {
   return renderToString(
@@ -31,12 +30,8 @@ describe('data provenance line', () => {
     const before = html.slice(Math.max(0, start - 400), start)
     expect(before).not.toMatch(/<button/)
   })
-})
 
-describe('prototype mark on the terminal (numbers are made up until M2)', () => {
-  it('is on /markets/sol-usdc and only there', () => {
-    expect(render('/markets/sol-usdc')).toContain(prototypeBanner)
-    expect(render('/')).not.toContain(prototypeBanner)
-    expect(prototypeBanner).toMatch(/fictional/)
+  it('no screen shows made-up numbers any more', () => {
+    for (const route of routes) expect(render(route)).not.toMatch(/fictional/i)
   })
 })
