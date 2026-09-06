@@ -62,6 +62,8 @@ export interface Repo {
   coverage(marketId: number): Promise<CoverageRow[]>
   /** Events in `[fromMs, toMs]` in time order; read once per run. */
   bookUpdates(marketId: number, fromMs: number, toMs: number): Promise<BookRow[]>
+  /** Latest book event of a market with `tMs ≤ notAfterMs` — for the live stream, including one shifted by emulation. */
+  latestBook(marketId: number, notAfterMs: number): Promise<BookRow | null>
   /** All delivery channels from the table — with `kind`, because channel data never goes out without it. */
   paths(): Promise<PathRow[]>
   /** Arrivals of the market's events registered after `sinceMs` (by `first_seen_at`). */

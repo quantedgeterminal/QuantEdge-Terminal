@@ -28,6 +28,15 @@ export const RunRequest = z.object({
 export type RunRequest = z.infer<typeof RunRequest>
 
 export const MarketIdParam = z.object({ id: z.coerce.number().int().positive() })
+
+/**
+ * Emulated-channel profile in the stream query (FR-005a): offset in ms and the source
+ * of the number. Both or neither: an offset without a source is a claim without a reference.
+ */
+export const StreamQuery = z.object({
+  offsetMs: z.coerce.number().int().min(-60_000).max(60_000).optional(),
+  source: z.string().min(1).max(200).optional(),
+})
 export const RunIdParam = z.object({ id: z.uuid() })
 
 /** Anonymous session key (FR-022a): the UUID issued by `POST /session`. */

@@ -32,6 +32,12 @@ export class MemoryRepo implements Repo {
       .filter((r) => r.tMs >= fromMs && r.tMs <= toMs)
       .sort((a, b) => a.tMs - b.tMs)
   }
+  async latestBook(marketId: number, notAfterMs: number) {
+    const rows = this.books.get(marketId) ?? []
+    let best: BookRow | null = null
+    for (const r of rows) if (r.tMs <= notAfterMs && (best === null || r.tMs > best.tMs)) best = r
+    return best
+  }
   async paths() {
     return [...this.pathRows]
   }

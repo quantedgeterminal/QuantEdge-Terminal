@@ -1,11 +1,13 @@
 import { zValidator } from '@hono/zod-validator'
 import { ParamError, presets } from '@quantedge/engine'
 import { Hono } from 'hono'
+import { streamSSE } from 'hono/streaming'
 import { missingRanges } from './coverage.ts'
 import { aggregateLatency } from './latency.ts'
 import type { Repo } from './repo.ts'
 import { executeRun, mergeParams, runDto } from './runs.ts'
-import { MarketIdParam, RunIdParam, RunRequest, SessionKey } from './schemas.ts'
+import { MarketIdParam, RunIdParam, RunRequest, SessionKey, StreamQuery } from './schemas.ts'
+import { BookFeed } from './stream.ts'
 
 const SESSION_HEADER = 'X-Session-Key'
 
@@ -14,7 +16,20 @@ const SESSION_HEADER = 'X-Session-Key'
  * is tested in memory and runs on Postgres. No route reads the request
  * body without going through Zod.
  */
-export function createApp(repo: Repo, newSessionKey: () => string, now: () => number = Date.now) {
+export interface AppOptions {
+  /** Live stream polling period; a frame goes out on an event change or on heartbeat. */
+  readonly streamPollMs?: number
+  readonly streamHeartbeatMs?: number
+}
+
+export function createApp(
+  repo: Repo,
+  newSessionKey: () => string,
+  now: () => number = Date.now,
+  options: AppOptions = {},
+) {
+  const pollMs = options.streamPollMs ?? 500
+  const heartbeatMs = options.streamHeartbeatMs ?? 1000
   const app = new Hono()
 
   app.get('/health', (c) => c.json({ ok: true }))
@@ -70,6 +85,41 @@ export function createApp(repo: Repo, newSessionKey: () => string, now: () => nu
     const [paths, rows] = await Promise.all([repo.paths(), repo.arrivalsSince(id, sinceMs)])
     return c.json(aggregateLatency(paths, rows, LATENCY_WINDOW_SEC))
   })
+
+  /**
+   * Live book stream (FR-018, T038): SSE, a frame per new event and at least every
+   * heartbeat. `?offsetMs=&source=` opens an emulated channel (T037); without them —
+   * the real one. `pathKind` is in every frame.
+   */
+  app.get(
+    '/markets/:id/stream',
+    zValidator('param', MarketIdParam),
+    zValidator('query', StreamQuery),
+    async (c) => {
+      const { id } = c.req.valid('param')
+      const q = c.req.valid('query')
+      if ((q.offsetMs === undefined) !== (q.source === undefined)) {
+        return c.json({ error: 'profile_incomplete', message: 'offsetMs and source go together' }, 400)
+      }
+      const market = await repo.getMarket(id)
+      if (!market) return c.json({ error: 'market_not_found' }, 404)
+      const profile =
+        q.offsetMs === undefined || q.source === undefined
+          ? null
+          : { offsetMs: q.offsetMs, source: q.source }
+      const feed = new BookFeed(repo, { marketId: id, profile, now })
+
+      return streamSSE(c, async (stream) => {
+        let seq = 0
+        while (!stream.aborted) {
+          const frame = await feed.next(heartbeatMs)
+          if (frame)
+            await stream.writeSSE({ event: 'book', id: String(seq++), data: JSON.stringify(frame) })
+          await stream.sleep(pollMs)
+        }
+      })
+    },
+  )
 
   /** Session key from the header; missing or malformed — 401. */
   async function session(c: { req: { header(name: string): string | undefined } }) {

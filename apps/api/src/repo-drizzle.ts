@@ -10,7 +10,7 @@ import {
   sessions,
 } from '@quantedge/db'
 import type { LevelResult } from '@quantedge/engine'
-import { and, asc, eq, gte, lte, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm'
 import type { Repo, RunRow } from './repo.ts'
 
 const ms = (d: Date): number => d.getTime()
@@ -69,6 +69,21 @@ export function drizzleRepo(db: Db): Repo {
         )
         .orderBy(asc(bookUpdates.firstSeenAt), asc(bookUpdates.slot), asc(bookUpdates.id))
       return rows.map((r) => ({ tMs: ms(r.firstSeenAt), levels: r.levels }))
+    },
+
+    async latestBook(marketId, notAfterMs) {
+      const [row] = await db
+        .select({ firstSeenAt: bookUpdates.firstSeenAt, levels: bookUpdates.levels })
+        .from(bookUpdates)
+        .where(
+          and(
+            eq(bookUpdates.marketId, marketId),
+            lte(bookUpdates.firstSeenAt, new Date(notAfterMs)),
+          ),
+        )
+        .orderBy(desc(bookUpdates.firstSeenAt), desc(bookUpdates.id))
+        .limit(1)
+      return row ? { tMs: ms(row.firstSeenAt), levels: row.levels } : null
     },
 
     paths: () =>

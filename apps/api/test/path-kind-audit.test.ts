@@ -1,4 +1,5 @@
-import { PathKind } from '@quantedge/shared'
+import { PRICE_SCALE } from '@quantedge/engine'
+import { PathKind, packLevels } from '@quantedge/shared'
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../src/app.ts'
 import { MemoryRepo } from '../src/memory-repo.ts'
@@ -12,7 +13,12 @@ import { MemoryRepo } from '../src/memory-repo.ts'
 const NOW = Date.parse('2026-09-04T12:00:00Z')
 
 function looksLikePathData(o: Record<string, unknown>): boolean {
-  return 'pathId' in o || 'p50Ms' in o || 'p95Ms' in o
+  return 'pathId' in o || 'p50Ms' in o || 'p95Ms' in o || 'pathName' in o || 'bids' in o
+}
+
+/** The mark may be called `kind` (channel table) or `pathKind` (stream frame). */
+function kindOf(o: Record<string, unknown>): unknown {
+  return 'kind' in o ? o.kind : o.pathKind
 }
 
 /** Returns the paths of channel objects without a valid `kind`. */
@@ -20,7 +26,7 @@ function audit(value: unknown, path = '$'): string[] {
   if (Array.isArray(value)) return value.flatMap((v, i) => audit(v, `${path}[${i}]`))
   if (value === null || typeof value !== 'object') return []
   const o = value as Record<string, unknown>
-  const own = looksLikePathData(o) && !PathKind.safeParse(o.kind).success ? [path] : []
+  const own = looksLikePathData(o) && !PathKind.safeParse(kindOf(o)).success ? [path] : []
   return [...own, ...Object.entries(o).flatMap(([k, v]) => audit(v, `${path}.${k}`))]
 }
 
@@ -49,15 +55,47 @@ function setup() {
     { bookUpdateId: 2n, pathId: 1, receivedAtUs: 1n, tMs: NOW - 120_000 },
     { bookUpdateId: 2n, pathId: 2, receivedAtUs: 2n, tMs: NOW - 120_000 },
   ])
+  repo.books.set(1, [
+    {
+      tMs: NOW - 400,
+      levels: packLevels({
+        bids: [{ price: 100n * PRICE_SCALE, size: 1n }],
+        asks: [{ price: 101n * PRICE_SCALE, size: 1n }],
+      }),
+    },
+  ])
   return createApp(
     repo,
     () => '44444444-4444-4444-8444-444444444444',
     () => NOW,
+    { streamPollMs: 5, streamHeartbeatMs: 50 },
   )
 }
 
+/** First SSE frame as JSON. */
+async function firstSseFrame(res: Response): Promise<unknown> {
+  const reader = res.body?.getReader()
+  if (!reader) throw new Error('no body')
+  const decoder = new TextDecoder()
+  let text = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) throw new Error('stream closed without a frame')
+    text += decoder.decode(value, { stream: true })
+    const m = text.match(/data: (.*)\n/)
+    if (m?.[1]) {
+      await reader.cancel()
+      return JSON.parse(m[1])
+    }
+  }
+}
+
 /** Every route that carries channel data. A new route with channels goes here. */
-const CHANNEL_ROUTES = ['/markets/1/latency']
+const CHANNEL_ROUTES = [
+  '/markets/1/latency',
+  '/markets/1/stream',
+  '/markets/1/stream?offsetMs=100&source=user',
+]
 
 describe('pathKind audit (SC-007)', () => {
   const app = setup()
@@ -65,14 +103,17 @@ describe('pathKind audit (SC-007)', () => {
   it.each(CHANNEL_ROUTES)('%s: every channel object has kind', async (route) => {
     const res = await app.request(route)
     expect(res.status).toBe(200)
-    const body = await res.json()
+    const sse = res.headers.get('content-type')?.includes('text/event-stream') ?? false
+    const body = sse ? await firstSseFrame(res) : await res.json()
     expect(audit(body)).toEqual([])
   })
 
-  it('the auditor catches a missing and a foreign kind', () => {
+  it('the auditor catches a missing and a foreign kind — in the table and in the frame', () => {
     expect(audit({ paths: [{ pathId: 1, name: 'x' }] })).toEqual(['$.paths[0]'])
     expect(audit({ paths: [{ p50Ms: 3, kind: 'fast' }] })).toEqual(['$.paths[0]'])
     expect(audit({ paths: [{ p50Ms: 3, kind: 'emulated' }] })).toEqual([])
+    expect(audit({ bids: [], asks: [] })).toEqual(['$'])
+    expect(audit({ bids: [], asks: [], pathKind: 'real' })).toEqual([])
   })
 
   it('/latency: 60 s window, measured only between real channels, emulation labelled', async () => {
