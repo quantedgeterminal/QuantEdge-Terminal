@@ -1,4 +1,4 @@
-import type { PathKind } from '@quantedge/shared'
+import type { PathKind } from './path-kind.ts'
 
 /** Delivery channel from the `delivery_paths` table. */
 export interface PathRow {

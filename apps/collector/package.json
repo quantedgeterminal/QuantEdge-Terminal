@@ -10,6 +10,7 @@
   },
   "scripts": {
     "seed": "node --env-file=../../.env src/seed.ts",
+    "bench:latency": "node src/bench-latency.ts",
     "dev": "node --env-file=../../.env --watch src/index.ts",
     "start": "node src/index.ts",
     "test": "vitest run",

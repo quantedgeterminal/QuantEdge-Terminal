@@ -1,5 +1,5 @@
 import type { LevelResult } from '@quantedge/engine'
-import type { ArrivalRow, PathRow } from './latency.ts'
+import type { ArrivalRow, PathRow } from '@quantedge/shared'
 import type { BookRow, CoverageRow, MarketRow, NewRun, Repo, RunRow } from './repo.ts'
 
 /** In-memory `Repo` for route tests: the same behaviour, no Postgres. */

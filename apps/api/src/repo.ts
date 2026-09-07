@@ -1,5 +1,5 @@
 import type { LevelResult } from '@quantedge/engine'
-import type { ArrivalRow, PathRow } from './latency.ts'
+import type { ArrivalRow, PathRow } from '@quantedge/shared'
 
 /**
  * Boundary between routes and storage. Routes know only this interface: in tests
