@@ -113,8 +113,10 @@ export const MissingRanges = z.object({
   missingRanges: z.array(z.object({ from: z.iso.datetime(), to: z.iso.datetime() })),
 })
 
-export const ParamProblem = z.object({
-  error: z.literal('invalid_params'),
+/** An error on a specific field (FR-016): a preset parameter or any other request field. */
+export const FieldProblem = z.object({
+  error: z.enum(['invalid_params', 'invalid_request', 'invalid_period']),
   field: z.string(),
   message: z.string(),
 })
+export type FieldProblem = z.infer<typeof FieldProblem>

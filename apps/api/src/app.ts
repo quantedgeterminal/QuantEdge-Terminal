@@ -1,4 +1,3 @@
-import { zValidator } from '@hono/zod-validator'
 import { ParamError, presets } from '@quantedge/engine'
 import { aggregateLatency } from '@quantedge/shared'
 import { Hono } from 'hono'
@@ -8,6 +7,7 @@ import type { Repo } from './repo.ts'
 import { executeRun, mergeParams, runDto } from './runs.ts'
 import { MarketIdParam, RunIdParam, RunRequest, SessionKey, StreamQuery } from './schemas.ts'
 import { BookFeed } from './stream.ts'
+import { validated } from './validate.ts'
 
 const SESSION_HEADER = 'X-Session-Key'
 
@@ -60,7 +60,7 @@ export function createApp(
     )
   })
 
-  app.get('/markets/:id/coverage', zValidator('param', MarketIdParam), async (c) => {
+  app.get('/markets/:id/coverage', validated('param', MarketIdParam), async (c) => {
     const { id } = c.req.valid('param')
     const market = await repo.getMarket(id)
     if (!market) return c.json({ error: 'market_not_found' }, 404)
@@ -77,7 +77,7 @@ export function createApp(
   /** Differential-latency window (SC-005): the last 60 s by `first_seen_at`. */
   const LATENCY_WINDOW_SEC = 60
 
-  app.get('/markets/:id/latency', zValidator('param', MarketIdParam), async (c) => {
+  app.get('/markets/:id/latency', validated('param', MarketIdParam), async (c) => {
     const { id } = c.req.valid('param')
     const market = await repo.getMarket(id)
     if (!market) return c.json({ error: 'market_not_found' }, 404)
@@ -93,13 +93,20 @@ export function createApp(
    */
   app.get(
     '/markets/:id/stream',
-    zValidator('param', MarketIdParam),
-    zValidator('query', StreamQuery),
+    validated('param', MarketIdParam),
+    validated('query', StreamQuery),
     async (c) => {
       const { id } = c.req.valid('param')
       const q = c.req.valid('query')
       if ((q.offsetMs === undefined) !== (q.source === undefined)) {
-        return c.json({ error: 'profile_incomplete', message: 'offsetMs and source go together' }, 400)
+        return c.json(
+          {
+            error: 'profile_incomplete',
+            field: 'source',
+            message: 'offsetMs and source go together',
+          },
+          400,
+        )
       }
       const market = await repo.getMarket(id)
       if (!market) return c.json({ error: 'market_not_found' }, 404)
@@ -129,7 +136,7 @@ export function createApp(
     return parsed.data
   }
 
-  app.post('/runs', zValidator('json', RunRequest), async (c) => {
+  app.post('/runs', validated('json', RunRequest), async (c) => {
     const sessionKey = await session(c)
     if (sessionKey === null) return c.json({ error: 'session_required' }, 401)
     const body = c.req.valid('json')
@@ -137,7 +144,10 @@ export function createApp(
     const fromMs = Date.parse(body.from)
     const toMs = Date.parse(body.to)
     if (!(fromMs < toMs)) {
-      return c.json({ error: 'invalid_period', message: '`from` must be earlier than `to`' }, 400)
+      return c.json(
+        { error: 'invalid_period', field: 'from', message: '`from` must be earlier than `to`' },
+        400,
+      )
     }
 
     const market = await repo.getMarket(body.marketId)
@@ -152,7 +162,7 @@ export function createApp(
       preset?.build(params, { lot: 1n })
     } catch (e) {
       if (e instanceof ParamError) {
-        return c.json({ error: 'invalid_params', field: e.key, message: e.message }, 400)
+        return c.json({ error: 'invalid_params', field: e.key, message: e.reason }, 400)
       }
       throw e
     }
@@ -185,7 +195,7 @@ export function createApp(
     return c.json({ runId: run.id }, 201)
   })
 
-  app.get('/runs/:id', zValidator('param', RunIdParam), async (c) => {
+  app.get('/runs/:id', validated('param', RunIdParam), async (c) => {
     const sessionKey = await session(c)
     if (sessionKey === null) return c.json({ error: 'session_required' }, 401)
     const { id } = c.req.valid('param')

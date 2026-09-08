@@ -25,7 +25,7 @@ export interface Preset {
 
 function num(params: ParamValues, key: string): number {
   const v = params[key]
-  if (v === undefined) throw new ParamError(key, 'parameter is missing')
+  if (v === undefined) throw new ParamError(key, 'missing')
   return v
 }
 

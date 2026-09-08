@@ -1,10 +1,10 @@
 import { z } from 'zod'
 import {
   CoverageSegment,
+  FieldProblem,
   LatencySummary,
   Market,
   MissingRanges,
-  ParamProblem,
   Preset,
   Run,
 } from './schemas.ts'
@@ -36,13 +36,16 @@ export class IncompletePeriod extends ApiError {
   }
 }
 
-/** A parameter failed (FR-016): an error on a specific field. */
-export class InvalidParam extends ApiError {
+/** A field failed (FR-016): an error on a specific field — a preset parameter or a request field. */
+export class InvalidField extends ApiError {
   readonly field: string
-  constructor(field: string, message: string) {
-    super(400, 'invalid_params', message)
-    this.name = 'InvalidParam'
-    this.field = field
+  /** `true` — the field is a preset parameter, shown by the parameter editor. */
+  readonly isParam: boolean
+  constructor(problem: FieldProblem) {
+    super(400, problem.error, problem.message)
+    this.name = 'InvalidField'
+    this.field = problem.field
+    this.isParam = problem.error === 'invalid_params'
   }
 }
 
@@ -119,8 +122,8 @@ export const api = {
     if (res.status === 201) return z.object({ runId: z.uuid() }).parse(json).runId
     const gaps = MissingRanges.safeParse(json)
     if (gaps.success) throw new IncompletePeriod(gaps.data.missingRanges)
-    const param = ParamProblem.safeParse(json)
-    if (param.success) throw new InvalidParam(param.data.field, param.data.message)
+    const field = FieldProblem.safeParse(json)
+    if (field.success) throw new InvalidField(field.data)
     throw new ApiError(res.status, `http_${res.status}`, `POST /runs → ${res.status}`, json)
   },
 }

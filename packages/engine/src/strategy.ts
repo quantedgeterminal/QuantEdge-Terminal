@@ -36,13 +36,19 @@ export interface ParamSpec {
 
 export type ParamValues = Readonly<Record<string, number>>
 
-/** A parameter error with the field name — what FR-016 requires to show the user. */
+/**
+ * A parameter error with the field name — what FR-016 requires to show the user.
+ * The text is English: it goes to the user as is, in the language of the screens.
+ */
 export class ParamError extends RangeError {
   readonly key: string
-  constructor(key: string, message: string) {
-    super(`${key}: ${message}`)
+  /** Explanation without the field name — for the API response, where the field goes separately. */
+  readonly reason: string
+  constructor(key: string, reason: string) {
+    super(`${key}: ${reason}`)
     this.name = 'ParamError'
     this.key = key
+    this.reason = reason
   }
 }
 
@@ -50,10 +56,10 @@ export class ParamError extends RangeError {
 export function validateParams(specs: readonly ParamSpec[], values: ParamValues): void {
   for (const spec of specs) {
     const v = values[spec.key]
-    if (v === undefined) throw new ParamError(spec.key, 'parameter is missing')
+    if (v === undefined) throw new ParamError(spec.key, 'missing')
     if (!Number.isInteger(v)) throw new ParamError(spec.key, `must be an integer, got ${v}`)
     if (v < spec.min || v > spec.max) {
-      throw new ParamError(spec.key, `${v} is out of bounds ${spec.min}…${spec.max} ${spec.unit}`)
+      throw new ParamError(spec.key, `${v} is outside ${spec.min}…${spec.max} ${spec.unit}`)
     }
   }
   for (const key of Object.keys(values)) {

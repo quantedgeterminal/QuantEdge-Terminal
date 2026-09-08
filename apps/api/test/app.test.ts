@@ -163,9 +163,32 @@ describe('POST /runs — boundary', () => {
   it('parameter out of bounds — 400 with the field name (FR-016)', async () => {
     const res = await postRun(s.app, { ...goodRun, params: { thinRatioPct: 0 } })
     expect(res.status).toBe(400)
-    const body = (await res.json()) as { error: string; field: string }
+    const body = (await res.json()) as { error: string; field: string; message: string }
     expect(body.error).toBe('invalid_params')
     expect(body.field).toBe('thinRatioPct')
+    expect(body.message).toBe('0 is outside 1…100 %')
+    expect(s.repo.runs.size).toBe(0)
+  })
+
+  it('a Zod failure names the field too: fractional parameter, fractional level, unknown preset (T043)', async () => {
+    const problem = async (body: Record<string, unknown>) =>
+      (await (await postRun(s.app, body)).json()) as { error: string; field: string }
+    expect(await problem({ ...goodRun, params: { holdMs: 1.5 } })).toMatchObject({
+      error: 'invalid_params',
+      field: 'holdMs',
+    })
+    expect(await problem({ ...goodRun, levelsMs: [0, 1.5] })).toMatchObject({
+      error: 'invalid_request',
+      field: 'levelsMs.1',
+    })
+    expect(await problem({ ...goodRun, preset: 'spread-capture' })).toMatchObject({
+      error: 'invalid_request',
+      field: 'preset',
+    })
+    expect(await problem({ ...goodRun, from: goodRun.to, to: goodRun.from })).toMatchObject({
+      error: 'invalid_period',
+      field: 'from',
+    })
     expect(s.repo.runs.size).toBe(0)
   })
 

@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { ApiError, api, IncompletePeriod, InvalidParam } from '../api/client.ts'
+import { ApiError, api, IncompletePeriod, InvalidField } from '../api/client.ts'
 import type { CoverageSegment, Market, ParamSpec, Preset } from '../api/schemas.ts'
 import { Shell } from '../components/Shell.tsx'
 import { formatAtoms, formatCount, formatDuration, formatRange } from '../money.ts'
@@ -242,7 +242,7 @@ export default function RunScreen() {
 }
 
 function describe(e: unknown): string {
-  if (e instanceof InvalidParam) return `${e.field}: ${e.message}`
+  if (e instanceof InvalidField) return `${e.field}: ${e.message}`
   if (e instanceof ApiError) return `API error ${e.status} (${e.code}).`
   if (e instanceof Error) return `Could not reach the API: ${e.message}`
   return 'Unknown error.'
