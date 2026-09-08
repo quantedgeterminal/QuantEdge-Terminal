@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { api } from '../api/client.ts'
-import type { LatencySummary, Market, PathLatency } from '../api/schemas.ts'
+import type { LatencySummary, PathLatency } from '../api/schemas.ts'
 import { type Frame, openBookStream } from '../api/stream.ts'
 import { Shell } from '../components/Shell.tsx'
 import { formatPrice, formatSize, priceDigits } from '../money.ts'
@@ -19,7 +19,9 @@ interface Row {
   cumulative: number
 }
 
-function rows(levels: Frame['bids'], market: Market, digits: number): Row[] {
+type MarketMeta = Frame['market']
+
+function rows(levels: Frame['bids'], market: MarketMeta, digits: number): Row[] {
   let acc = 0
   return levels.map((l) => {
     acc += Number(l.size)
@@ -146,7 +148,7 @@ function seconds(ms: number): string {
 }
 
 /** Render-side derivatives of a frame: rows, bar maxima, mid and spread. */
-function derive(frame: Frame, market: Market) {
+function derive(frame: Frame, market: MarketMeta) {
   const best = frame.asks[0]?.price
   const digits = best ? priceDigits(best, market.baseDecimals, market.quoteDecimals) : 2
   const asks = rows(frame.asks, market, digits)
@@ -165,7 +167,7 @@ function derive(frame: Frame, market: Market) {
   }
 }
 
-function Book({ frame, market }: { frame: Frame; market: Market }) {
+function Book({ frame, market }: { frame: Frame; market: MarketMeta }) {
   const d = derive(frame, market)
   const stale = frame.stale
   return (
@@ -203,30 +205,17 @@ function Book({ frame, market }: { frame: Frame; market: Market }) {
 export default function TerminalScreen() {
   const { marketId } = useParams()
   const id = Number(marketId)
-  const [market, setMarket] = useState<Market | null | undefined>(undefined)
+  const validId = Number.isInteger(id) && id > 0
   const [frame, setFrame] = useState<Frame | null>(null)
   const [latency, setLatency] = useState<LatencySummary | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
 
+  // The first screen is built from the first stream frame: market metadata rides in the frame,
+  // there is no separate request before opening the stream (SC-004).
   useEffect(() => {
-    if (!Number.isInteger(id) || id <= 0) {
-      setMarket(null)
-      return
-    }
-    let alive = true
-    api
-      .market(id)
-      .then((m) => alive && setMarket(m))
-      .catch((e: unknown) => alive && setProblem(e instanceof Error ? e.message : 'error'))
-    return () => {
-      alive = false
-    }
-  }, [id])
-
-  useEffect(() => {
-    if (!market) return
+    if (!validId) return
     const stream = openBookStream(
-      market.id,
+      id,
       (f) => {
         setFrame(f)
         setProblem(null)
@@ -235,7 +224,7 @@ export default function TerminalScreen() {
     )
     const poll = () => {
       api
-        .latency(market.id)
+        .latency(id)
         .then(setLatency)
         .catch(() => setLatency(null))
     }
@@ -245,22 +234,22 @@ export default function TerminalScreen() {
       stream.close()
       clearInterval(timer)
     }
-  }, [market])
+  }, [id, validId])
 
+  const market = frame?.market ?? null
   const stale = frame?.stale ?? false
   const lag = lagFigure(latency)
+  const title = !validId
+    ? 'No such market'
+    : market
+      ? `${market.label} · ${market.venue}`
+      : 'Waiting for the first book update…'
 
   return (
     <Shell>
       <main className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6">
         <div className="mb-5 flex items-baseline justify-between gap-4">
-          <h1 className="qe-mono text-[13px] text-[hsl(var(--qe-text))]">
-            {market
-              ? `${market.label} · ${market.venue}`
-              : market === null
-                ? 'No such market'
-                : 'Loading market…'}
-          </h1>
+          <h1 className="qe-mono text-[13px] text-[hsl(var(--qe-text))]">{title}</h1>
           <Link
             to="/"
             className="qe-mono text-[12px] text-[hsl(var(--qe-accent))] underline underline-offset-4"
@@ -289,7 +278,7 @@ export default function TerminalScreen() {
               <Book frame={frame} market={market} />
             ) : (
               <p className="qe-mono py-6 text-[12px] text-[hsl(var(--qe-dim))]">
-                {market === null ? 'Nothing to show.' : 'Waiting for the first book update…'}
+                {validId ? 'Waiting for the first book update…' : 'Nothing to show.'}
               </p>
             )}
           </section>

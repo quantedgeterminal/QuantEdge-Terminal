@@ -107,7 +107,7 @@ export function createApp(
         q.offsetMs === undefined || q.source === undefined
           ? null
           : { offsetMs: q.offsetMs, source: q.source }
-      const feed = new BookFeed(repo, { marketId: id, profile, now })
+      const feed = new BookFeed(repo, { market, profile, now })
 
       return streamSSE(c, async (stream) => {
         let seq = 0

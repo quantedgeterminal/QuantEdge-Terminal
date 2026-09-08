@@ -1,6 +1,6 @@
 import type { PathKind } from '@quantedge/shared'
 import { unpackLevels } from '@quantedge/shared'
-import type { BookRow, Repo } from './repo.ts'
+import type { BookRow, MarketRow, Repo } from './repo.ts'
 
 /** The book counts as stale after this age (FR-020). */
 export const STALE_AFTER_MS = 5000
@@ -13,6 +13,14 @@ export interface StreamProfile {
 
 /** One live-stream frame. `pathKind` is a required field, not a component flag (SC-007). */
 export interface StreamFrame {
+  /** Market metadata in the frame — so the first screen does not wait for a separate request (SC-004). */
+  readonly market: {
+    readonly id: number
+    readonly label: string
+    readonly venue: string
+    readonly baseDecimals: number
+    readonly quoteDecimals: number
+  }
   readonly t: string
   readonly ageMs: number
   readonly stale: boolean
@@ -26,7 +34,7 @@ export interface StreamFrame {
 }
 
 export interface StreamOptions {
-  readonly marketId: number
+  readonly market: MarketRow
   /** `null` — a real channel (the merged record of two real ones); otherwise emulation by profile. */
   readonly profile: StreamProfile | null
   readonly now: () => number
@@ -39,7 +47,15 @@ function frame(row: BookRow, opts: StreamOptions, deliveredAtMs: number): Stream
     price: l.price.toString(),
     size: l.size.toString(),
   })
+  const m = opts.market
   return {
+    market: {
+      id: m.id,
+      label: m.label,
+      venue: m.venue,
+      baseDecimals: m.baseDecimals,
+      quoteDecimals: m.quoteDecimals,
+    },
     t: new Date(row.tMs).toISOString(),
     ageMs,
     stale: ageMs > STALE_AFTER_MS,
@@ -80,7 +96,7 @@ export class BookFeed {
   async next(heartbeatMs: number): Promise<StreamFrame | null> {
     const offset = Math.max(0, this.opts.profile?.offsetMs ?? 0)
     const nowMs = this.opts.now()
-    const row = await this.repo.latestBook(this.opts.marketId, nowMs - offset)
+    const row = await this.repo.latestBook(this.opts.market.id, nowMs - offset)
     if (!row) return null
     const changed = row.tMs !== this.lastT
     const due = this.lastSentAt === null || nowMs - this.lastSentAt >= heartbeatMs

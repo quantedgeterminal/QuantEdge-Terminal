@@ -7,6 +7,13 @@ const LevelDto = z.object({ price: z.string().regex(/^\d+$/), size: z.string().r
 
 /** A live-stream frame. `pathKind` is required: without it the frame is rejected (SC-007). */
 export const Frame = z.object({
+  market: z.object({
+    id: z.int(),
+    label: z.string(),
+    venue: z.string(),
+    baseDecimals: z.int(),
+    quoteDecimals: z.int(),
+  }),
   t: z.iso.datetime(),
   ageMs: z.int(),
   stale: z.boolean(),

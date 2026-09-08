@@ -7,17 +7,19 @@ import { BookFeed, STALE_AFTER_MS, type StreamFrame } from '../src/stream.ts'
 
 const T0 = Date.parse('2026-09-04T12:00:00Z')
 
+const MARKET = {
+  id: 1,
+  venue: 'manifest',
+  address: 'x',
+  label: 'cbBTC/USDC',
+  baseDecimals: 8,
+  quoteDecimals: 6,
+  active: true,
+}
+
 function repoWith(times: number[]): MemoryRepo {
   const repo = new MemoryRepo()
-  repo.markets.push({
-    id: 1,
-    venue: 'manifest',
-    address: 'x',
-    label: 'cbBTC/USDC',
-    baseDecimals: 8,
-    quoteDecimals: 6,
-    active: true,
-  })
+  repo.markets.push(MARKET)
   repo.books.set(
     1,
     times.map((t, i) => ({
@@ -35,7 +37,7 @@ describe('BookFeed', () => {
   it('a frame on a new event, then silence until heartbeat, then a frame with age', async () => {
     const repo = repoWith([T0])
     let now = T0 + 100
-    const feed = new BookFeed(repo, { marketId: 1, profile: null, now: () => now })
+    const feed = new BookFeed(repo, { market: MARKET, profile: null, now: () => now })
     const first = await feed.next(1000)
     expect(first).toMatchObject({ ageMs: 100, stale: false, pathKind: 'real', profile: null })
     expect(first?.asks[0]).toEqual({ price: (101n * PRICE_SCALE).toString(), size: '7' })
@@ -51,7 +53,7 @@ describe('BookFeed', () => {
   it('FR-020: without new events the age grows and the book turns stale past the threshold', async () => {
     const repo = repoWith([T0])
     let now = T0
-    const feed = new BookFeed(repo, { marketId: 1, profile: null, now: () => now })
+    const feed = new BookFeed(repo, { market: MARKET, profile: null, now: () => now })
     await feed.next(1000)
     now = T0 + STALE_AFTER_MS + 1
     const f = await feed.next(1000)
@@ -62,7 +64,7 @@ describe('BookFeed', () => {
     const repo = repoWith([T0, T0 + 1000])
     let now = T0 + 1500
     const profile = { offsetMs: 2000, source: 'user' }
-    const feed = new BookFeed(repo, { marketId: 1, profile, now: () => now })
+    const feed = new BookFeed(repo, { market: MARKET, profile, now: () => now })
     expect(await feed.next(1000)).toBeNull() // even the first event is still "in transit"
 
     now = T0 + 2100
@@ -84,7 +86,7 @@ describe('BookFeed', () => {
   it('a negative offset cannot deliver earlier: data as is, but labelled', async () => {
     const repo = repoWith([T0])
     const feed = new BookFeed(repo, {
-      marketId: 1,
+      market: MARKET,
       profile: { offsetMs: -300, source: 'claimed' },
       now: () => T0 + 50,
     })
@@ -93,7 +95,7 @@ describe('BookFeed', () => {
   })
 
   it('a market without events — no frames', async () => {
-    const feed = new BookFeed(repoWith([]), { marketId: 1, profile: null, now: () => T0 })
+    const feed = new BookFeed(repoWith([]), { market: MARKET, profile: null, now: () => T0 })
     expect(await feed.next(1000)).toBeNull()
   })
 })
@@ -132,6 +134,13 @@ describe('GET /markets/:id/stream (T038)', () => {
     const f = await firstFrame(res)
     expect(f).toMatchObject({ pathKind: 'real', ageMs: 10, stale: false })
     expect(f.bids).toHaveLength(1)
+    expect(f.market).toEqual({
+      id: 1,
+      label: 'cbBTC/USDC',
+      venue: 'manifest',
+      baseDecimals: 8,
+      quoteDecimals: 6,
+    })
   })
 
   it('a profile in the query — an emulated channel with the mark and the source', async () => {
