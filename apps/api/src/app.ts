@@ -3,13 +3,50 @@ import { aggregateLatency } from '@quantedge/shared'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { missingRanges } from './coverage.ts'
-import type { Repo } from './repo.ts'
+import type { Repo, StrategyRow } from './repo.ts'
 import { executeRun, mergeParams, runDto } from './runs.ts'
-import { MarketIdParam, RunIdParam, RunRequest, SessionKey, StreamQuery } from './schemas.ts'
+import {
+  MarketIdParam,
+  RunIdParam,
+  RunRequest,
+  SessionKey,
+  StrategyIdParam,
+  StrategyRequest,
+  StreamQuery,
+} from './schemas.ts'
 import { BookFeed } from './stream.ts'
-import { validated } from './validate.ts'
+import { paramProblem, validated } from './validate.ts'
 
 const SESSION_HEADER = 'X-Session-Key'
+
+/**
+ * Full preset parameters or an error on a specific field (FR-016). A strategy
+ * is built right away — so a parameter failure comes back as 400 with a field, not
+ * as a `failed` run or a saved-but-unusable configuration.
+ */
+function resolveParams(
+  presetId: string,
+  partial: Readonly<Record<string, number>>,
+): { params: Record<string, number> } | { problem: ParamError } {
+  try {
+    const params = mergeParams(presetId, partial)
+    presets.find((p) => p.id === presetId)?.build(params, { lot: 1n })
+    return { params }
+  } catch (e) {
+    if (e instanceof ParamError) return { problem: e }
+    throw e
+  }
+}
+
+function strategyDto(s: StrategyRow) {
+  return {
+    id: s.id,
+    name: s.name,
+    preset: s.preset,
+    params: s.params,
+    createdAt: new Date(s.createdAtMs).toISOString(),
+  }
+}
 
 /**
  * Routes over `Repo`. The storage is injected so that the same app
@@ -153,19 +190,9 @@ export function createApp(
     const market = await repo.getMarket(body.marketId)
     if (!market) return c.json({ error: 'market_not_found' }, 404)
 
-    let params: Record<string, number>
-    try {
-      params = mergeParams(body.preset, body.params)
-      // Build the strategy now — so a parameter error comes back as 400 with a field,
-      // not as a `failed` run.
-      const preset = presets.find((p) => p.id === body.preset)
-      preset?.build(params, { lot: 1n })
-    } catch (e) {
-      if (e instanceof ParamError) {
-        return c.json({ error: 'invalid_params', field: e.key, message: e.reason }, 400)
-      }
-      throw e
-    }
+    const resolved = resolveParams(body.preset, body.params)
+    if ('problem' in resolved) return c.json(paramProblem(resolved.problem), 400)
+    const { params } = resolved
 
     // FR-014 / SC-009: a run over incomplete data does not start; name what is missing.
     const gaps = missingRanges(await repo.coverage(market.id), { fromMs, toMs })
@@ -206,6 +233,43 @@ export function createApp(
     if (!market) return c.json({ error: 'market_not_found' }, 404)
     const results = run.status === 'done' ? await repo.results(run.id) : []
     return c.json(runDto(run, market, results))
+  })
+
+  /**
+   * Saved strategies (FR-017) hang on the session key (FR-022a): without a key there are
+   * none, other sessions' are invisible. Parameters are stored in full — a run from them
+   * replays even if the preset's defaults change later.
+   */
+  app.get('/strategies', async (c) => {
+    const sessionKey = await session(c)
+    if (sessionKey === null) return c.json({ error: 'session_required' }, 401)
+    const rows = await repo.listStrategies(sessionKey)
+    return c.json(rows.map(strategyDto))
+  })
+
+  app.post('/strategies', validated('json', StrategyRequest), async (c) => {
+    const sessionKey = await session(c)
+    if (sessionKey === null) return c.json({ error: 'session_required' }, 401)
+    const body = c.req.valid('json')
+    const resolved = resolveParams(body.preset, body.params)
+    if ('problem' in resolved) return c.json(paramProblem(resolved.problem), 400)
+    const row = await repo.createStrategy({
+      sessionKey,
+      name: body.name,
+      preset: body.preset,
+      params: resolved.params,
+    })
+    return c.json(strategyDto(row), 201)
+  })
+
+  app.delete('/strategies/:id', validated('param', StrategyIdParam), async (c) => {
+    const sessionKey = await session(c)
+    if (sessionKey === null) return c.json({ error: 'session_required' }, 401)
+    const { id } = c.req.valid('param')
+    // Another session's strategy looks absent — same as another session's run.
+    const deleted = await repo.deleteStrategy(id, sessionKey)
+    if (!deleted) return c.json({ error: 'strategy_not_found' }, 404)
+    return c.body(null, 204)
   })
 
   return app

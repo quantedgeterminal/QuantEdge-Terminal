@@ -8,10 +8,11 @@ import {
   markets,
   runResults,
   sessions,
+  strategies,
 } from '@quantedge/db'
 import type { LevelResult } from '@quantedge/engine'
 import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm'
-import type { Repo, RunRow } from './repo.ts'
+import type { Repo, RunRow, StrategyRow } from './repo.ts'
 
 const ms = (d: Date): number => d.getTime()
 
@@ -30,6 +31,17 @@ function toRunRow(r: typeof backtestRuns.$inferSelect): RunRow {
     error: r.error,
     createdAtMs: ms(r.createdAt),
     finishedAtMs: r.finishedAt === null ? null : ms(r.finishedAt),
+  }
+}
+
+function toStrategyRow(r: typeof strategies.$inferSelect): StrategyRow {
+  return {
+    id: r.id,
+    sessionKey: r.sessionKey,
+    name: r.name,
+    preset: r.preset,
+    params: r.params as Record<string, number>,
+    createdAtMs: ms(r.createdAt),
   }
 }
 
@@ -193,6 +205,32 @@ export function drizzleRepo(db: Db): Repo {
           finalPosition: r.finalPosition,
         }),
       )
+    },
+
+    async listStrategies(sessionKey) {
+      const rows = await db
+        .select()
+        .from(strategies)
+        .where(eq(strategies.sessionKey, sessionKey))
+        .orderBy(desc(strategies.createdAt), desc(strategies.id))
+      return rows.map(toStrategyRow)
+    },
+
+    async createStrategy(s) {
+      const [row] = await db
+        .insert(strategies)
+        .values({ sessionKey: s.sessionKey, name: s.name, preset: s.preset, params: s.params })
+        .returning()
+      if (!row) throw new Error('insert strategies returned no row')
+      return toStrategyRow(row)
+    },
+
+    async deleteStrategy(id, sessionKey) {
+      const rows = await db
+        .delete(strategies)
+        .where(and(eq(strategies.id, id), eq(strategies.sessionKey, sessionKey)))
+        .returning({ id: strategies.id })
+      return rows.length > 0
     },
   }
 }

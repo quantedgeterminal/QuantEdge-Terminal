@@ -1,6 +1,15 @@
 import type { LevelResult } from '@quantedge/engine'
 import type { ArrivalRow, PathRow } from '@quantedge/shared'
-import type { BookRow, CoverageRow, MarketRow, NewRun, Repo, RunRow } from './repo.ts'
+import type {
+  BookRow,
+  CoverageRow,
+  MarketRow,
+  NewRun,
+  NewStrategy,
+  Repo,
+  RunRow,
+  StrategyRow,
+} from './repo.ts'
 
 /** In-memory `Repo` for route tests: the same behaviour, no Postgres. */
 export class MemoryRepo implements Repo {
@@ -13,7 +22,9 @@ export class MemoryRepo implements Repo {
   readonly sessions = new Set<string>()
   readonly runs = new Map<string, RunRow>()
   readonly resultRows = new Map<string, LevelResult[]>()
+  readonly strategies = new Map<string, StrategyRow>()
   private nextRun = 1
+  private nextStrategy = 1
   /** How many times events were read — a run must read its data once. */
   bookReads = 0
 
@@ -78,5 +89,26 @@ export class MemoryRepo implements Repo {
   }
   async results(runId: string) {
     return [...(this.resultRows.get(runId) ?? [])]
+  }
+  async listStrategies(sessionKey: string) {
+    return [...this.strategies.values()]
+      .filter((s) => s.sessionKey === sessionKey)
+      .sort((a, b) => b.createdAtMs - a.createdAtMs)
+  }
+  async createStrategy(s: NewStrategy) {
+    const n = this.nextStrategy++
+    const row: StrategyRow = {
+      ...s,
+      id: `00000000-0000-4000-8000-1${String(n).padStart(11, '0')}`,
+      createdAtMs: 1_700_000_000_000 + n,
+    }
+    this.strategies.set(row.id, row)
+    return row
+  }
+  async deleteStrategy(id: string, sessionKey: string) {
+    const row = this.strategies.get(id)
+    if (!row || row.sessionKey !== sessionKey) return false
+    this.strategies.delete(id)
+    return true
   }
 }

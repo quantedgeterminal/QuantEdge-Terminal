@@ -7,6 +7,7 @@ import {
   MissingRanges,
   Preset,
   Run,
+  Strategy,
 } from './schemas.ts'
 
 const BASE = import.meta.env.VITE_API_URL ?? '/api'
@@ -97,6 +98,20 @@ async function get<T>(path: string, schema: z.ZodType<T>, withSession = false): 
   return schema.parse(await res.json())
 }
 
+/** Request with a body and the session key; a field failure becomes `InvalidField`, the rest `ApiError`. */
+async function send(method: 'POST' | 'DELETE', path: string, body?: unknown): Promise<Response> {
+  const headers: Record<string, string> = { 'X-Session-Key': await session() }
+  if (body !== undefined) headers['content-type'] = 'application/json'
+  const init: RequestInit = { method, headers }
+  if (body !== undefined) init.body = JSON.stringify(body)
+  const res = await fetch(`${BASE}${path}`, init)
+  if (res.ok) return res
+  const json: unknown = res.status === 204 ? null : await res.json().catch(() => null)
+  const field = FieldProblem.safeParse(json)
+  if (field.success) throw new InvalidField(field.data)
+  throw new ApiError(res.status, `http_${res.status}`, `${method} ${path} → ${res.status}`, json)
+}
+
 export const api = {
   markets: () => get('/markets', z.array(Market)),
   coverage: (marketId: number) => get(`/markets/${marketId}/coverage`, z.array(CoverageSegment)),
@@ -125,5 +140,13 @@ export const api = {
     const field = FieldProblem.safeParse(json)
     if (field.success) throw new InvalidField(field.data)
     throw new ApiError(res.status, `http_${res.status}`, `POST /runs → ${res.status}`, json)
+  },
+
+  /** Saved strategies of this session (FR-017); absent in another browser (FR-022a). */
+  strategies: () => get('/strategies', z.array(Strategy), true),
+  saveStrategy: async (body: { name: string; preset: string; params: Record<string, number> }) =>
+    Strategy.parse(await (await send('POST', '/strategies', body)).json()),
+  deleteStrategy: async (id: string): Promise<void> => {
+    await send('DELETE', `/strategies/${id}`)
   },
 }

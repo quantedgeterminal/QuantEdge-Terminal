@@ -39,5 +39,14 @@ export const StreamQuery = z.object({
 })
 export const RunIdParam = z.object({ id: z.uuid() })
 
+/** Saving a strategy (FR-017): name, preset and partial parameters — as in a run. */
+export const StrategyRequest = z.object({
+  name: z.string().trim().min(1).max(60),
+  preset: PresetId,
+  params: z.record(z.string(), z.int()).prefault({}),
+})
+export type StrategyRequest = z.infer<typeof StrategyRequest>
+export const StrategyIdParam = z.object({ id: z.uuid() })
+
 /** Anonymous session key (FR-022a): the UUID issued by `POST /session`. */
 export const SessionKey = z.uuid()

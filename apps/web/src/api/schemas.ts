@@ -113,6 +113,16 @@ export const MissingRanges = z.object({
   missingRanges: z.array(z.object({ from: z.iso.datetime(), to: z.iso.datetime() })),
 })
 
+/** Saved strategy configuration (FR-017): full parameters, as in a run. */
+export const Strategy = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  preset: z.string(),
+  params: z.record(z.string(), z.number()),
+  createdAt: z.iso.datetime(),
+})
+export type Strategy = z.infer<typeof Strategy>
+
 /** An error on a specific field (FR-016): a preset parameter or any other request field. */
 export const FieldProblem = z.object({
   error: z.enum(['invalid_params', 'invalid_request', 'invalid_period']),

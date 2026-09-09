@@ -1,4 +1,5 @@
 import { zValidator } from '@hono/zod-validator'
+import type { ParamError } from '@quantedge/engine'
 import type { ValidationTargets } from 'hono'
 import type { z } from 'zod'
 
@@ -23,6 +24,11 @@ export function fieldProblem(issues: readonly z.core.$ZodIssue[]): FieldProblem 
     return { error: 'invalid_params', field: path.slice(1).join('.'), message }
   }
   return { error: 'invalid_request', field: path.join('.') || 'body', message }
+}
+
+/** An engine failure (`ParamError`) in the same shape as a Zod failure. */
+export function paramProblem(e: ParamError): FieldProblem {
+  return { error: 'invalid_params', field: e.key, message: e.reason }
 }
 
 /** `zValidator` with our failure shape instead of the raw Zod result. */

@@ -304,3 +304,91 @@ describe('POST /runs → GET /runs/:id', () => {
     expect(strip(a)).toBe(strip(b))
   })
 })
+
+describe('/strategies — saved configurations on the session key (FR-017, FR-022a)', () => {
+  let s: ReturnType<typeof setup>
+  beforeEach(() => {
+    s = setup()
+  })
+
+  const post = (body: unknown, session = SESSION) =>
+    s.app.request('/strategies', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'X-Session-Key': session },
+      body: JSON.stringify(body),
+    })
+  const list = async (session = SESSION) =>
+    (await (
+      await s.app.request('/strategies', { headers: { 'X-Session-Key': session } })
+    ).json()) as { id: string; name: string; preset: string; params: Record<string, number> }[]
+
+  it('without a key — 401 on all three routes', async () => {
+    expect((await s.app.request('/strategies')).status).toBe(401)
+    expect(
+      (
+        await s.app.request('/strategies', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name: 'x', preset: 'momentum-chase' }),
+        })
+      ).status,
+    ).toBe(401)
+    expect((await s.app.request(`/strategies/${SESSION}`, { method: 'DELETE' })).status).toBe(401)
+  })
+
+  it('stores full parameters (defaults merged) and lists the newest first', async () => {
+    const a = await post({
+      name: 'thin 30',
+      preset: 'queue-depletion',
+      params: { thinRatioPct: 30 },
+    })
+    expect(a.status).toBe(201)
+    const created = (await a.json()) as { id: string; params: Record<string, number> }
+    expect(created.params).toMatchObject({ thinRatioPct: 30, holdMs: 800, maxSlippageBp: 10 })
+    await post({ name: '  chase  ', preset: 'momentum-chase' })
+    const rows = await list()
+    expect(rows.map((r) => r.name)).toEqual(['chase', 'thin 30'])
+    expect(rows[1]?.id).toBe(created.id)
+  })
+
+  it('bad parameter — 400 on the specific field, nothing saved; empty name — 400 too', async () => {
+    const bad = await post({ name: 'x', preset: 'queue-depletion', params: { thinRatioPct: 0 } })
+    expect(bad.status).toBe(400)
+    expect(await bad.json()).toMatchObject({ error: 'invalid_params', field: 'thinRatioPct' })
+    const unnamed = await post({ name: '   ', preset: 'queue-depletion' })
+    expect(unnamed.status).toBe(400)
+    expect(await unnamed.json()).toMatchObject({ error: 'invalid_request', field: 'name' })
+    expect(s.repo.strategies.size).toBe(0)
+  })
+
+  it('another session neither sees nor deletes; own session deletes — 204, then 404', async () => {
+    const { id } = (await (await post({ name: 'mine', preset: 'momentum-chase' })).json()) as {
+      id: string
+    }
+    expect(await list(OTHER)).toEqual([])
+    const del = (session: string) =>
+      s.app.request(`/strategies/${id}`, {
+        method: 'DELETE',
+        headers: { 'X-Session-Key': session },
+      })
+    expect((await del(OTHER)).status).toBe(404)
+    expect((await list()).length).toBe(1)
+    expect((await del(SESSION)).status).toBe(204)
+    expect((await del(SESSION)).status).toBe(404)
+    expect(await list()).toEqual([])
+  })
+
+  it('a saved configuration starts a run as is (FR-017)', async () => {
+    const saved = (await (
+      await post({ name: 'thin 30', preset: 'queue-depletion', params: { thinRatioPct: 30 } })
+    ).json()) as { preset: string; params: Record<string, number> }
+    const res = await postRun(s.app, { ...goodRun, preset: saved.preset, params: saved.params })
+    expect(res.status).toBe(201)
+    const { runId } = (await res.json()) as { runId: string }
+    const run = (await (
+      await s.app.request(`/runs/${runId}`, { headers: { 'X-Session-Key': SESSION } })
+    ).json()) as { status: string; params: Record<string, number> }
+    expect(run.status).toBe('done')
+    expect(run.params).toEqual(saved.params)
+  })
+})

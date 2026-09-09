@@ -56,6 +56,24 @@ export interface NewRun {
   readonly levelsMs: readonly number[]
 }
 
+/** Saved strategy configuration (FR-017), bound to a session key (FR-022a). */
+export interface StrategyRow {
+  readonly id: string
+  readonly sessionKey: string
+  readonly name: string
+  readonly preset: string
+  /** Full parameters: defaults already merged, same as in a run. */
+  readonly params: Readonly<Record<string, number>>
+  readonly createdAtMs: number
+}
+
+export interface NewStrategy {
+  readonly sessionKey: string
+  readonly name: string
+  readonly preset: string
+  readonly params: Readonly<Record<string, number>>
+}
+
 export interface Repo {
   listMarkets(): Promise<MarketRow[]>
   getMarket(id: number): Promise<MarketRow | null>
@@ -75,4 +93,10 @@ export interface Repo {
   finishRun(id: string, results: readonly LevelResult[]): Promise<void>
   failRun(id: string, error: string): Promise<void>
   results(runId: string): Promise<LevelResult[]>
+
+  /** Strategies of one session, newest first. Other sessions are invisible here. */
+  listStrategies(sessionKey: string): Promise<StrategyRow[]>
+  createStrategy(s: NewStrategy): Promise<StrategyRow>
+  /** `false` if the strategy does not exist or belongs to another session. */
+  deleteStrategy(id: string, sessionKey: string): Promise<boolean>
 }
