@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ApiError, api } from '../api/client.ts'
-import type { LevelResult, Run } from '../api/schemas.ts'
+import type { LevelResult, Preset, Run } from '../api/schemas.ts'
 import LatencyLadder, { type LadderLevel } from '../components/LatencyLadder.tsx'
 import { Shell } from '../components/Shell.tsx'
 import { formatAtoms, formatCount, formatDuration, formatRange, formatSigned } from '../money.ts'
+import { paramsLine } from '../params.ts'
 
 const COLUMNS = ['Delay', 'P&L', 'Trades', 'Unfilled', 'Avg slippage', 'Max drawdown'] as const
 
@@ -116,11 +117,11 @@ function costSentence(run: Run): string {
   return `${base} Levels ${c.excludedMs.join(', ')} ms are left out: at least half the orders there never filled, so the strategy stops being the same strategy and the fit stops before them.`
 }
 
-function Loaded({ run, presetLabel }: { run: Run; presetLabel: string }) {
+function Loaded({ run, preset }: { run: Run; preset: Preset | undefined }) {
   const decimals = run.market.quoteDecimals
   const quote = quoteSymbol(run.market.label)
   const header = [
-    presetLabel,
+    preset?.label ?? run.preset,
     formatRange(run.from, run.to),
     formatDuration(run.from, run.to),
     `run-${run.id.slice(0, 4)}`,
@@ -138,6 +139,11 @@ function Loaded({ run, presetLabel }: { run: Run; presetLabel: string }) {
         </Link>{' '}
         · {header}
       </p>
+      {preset && (
+        <p className="qe-mono -mt-4 mb-5 text-[11px] leading-[1.6] text-[hsl(var(--qe-faint))]">
+          {paramsLine(preset.params, run.market, run.params)}
+        </p>
+      )}
 
       {run.status === 'failed' ? (
         <Section>
@@ -227,7 +233,7 @@ function Sentence({ children }: { children: React.ReactNode }) {
 export default function ResultScreen() {
   const { runId } = useParams()
   const [run, setRun] = useState<Run | null>(null)
-  const [presetLabel, setPresetLabel] = useState<string>('')
+  const [preset, setPreset] = useState<Preset | undefined>(undefined)
   const [problem, setProblem] = useState<string | null>(null)
 
   useEffect(() => {
@@ -237,7 +243,7 @@ export default function ResultScreen() {
       .then(([r, presets]) => {
         if (!alive) return
         setRun(r)
-        setPresetLabel(presets.find((p) => p.id === r.preset)?.label ?? r.preset)
+        setPreset(presets.find((p) => p.id === r.preset))
       })
       .catch((e: unknown) => {
         if (!alive) return
@@ -266,7 +272,7 @@ export default function ResultScreen() {
         ) : run === null ? (
           <p className="qe-mono text-[12px] text-[hsl(var(--qe-dim))]">Loading run…</p>
         ) : (
-          <Loaded run={run} presetLabel={presetLabel} />
+          <Loaded run={run} preset={preset} />
         )}
       </main>
     </Shell>
