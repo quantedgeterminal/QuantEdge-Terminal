@@ -4,7 +4,12 @@ import { describe, expect, it } from 'vitest'
 import { App, PROVENANCE } from '../src/App.tsx'
 
 // Every reachable screen, by route.
-const routes = ['/', '/runs/00000000-0000-4000-8000-000000000001', '/markets/1']
+const routes = [
+  '/',
+  '/runs/00000000-0000-4000-8000-000000000001',
+  '/markets/1',
+  '/markets/1/compare',
+]
 
 function render(route: string): string {
   return renderToString(

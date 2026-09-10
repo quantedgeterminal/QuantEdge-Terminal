@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  Arrivals,
   CoverageSegment,
   FieldProblem,
   LatencySummary,
@@ -119,6 +120,7 @@ export const api = {
   market: (id: number) =>
     get('/markets', z.array(Market)).then((ms) => ms.find((m) => m.id === id) ?? null),
   latency: (marketId: number) => get(`/markets/${marketId}/latency`, LatencySummary),
+  arrivals: (marketId: number) => get(`/markets/${marketId}/arrivals`, Arrivals),
   run: (id: string) => get(`/runs/${id}`, Run, true),
 
   async startRun(body: {

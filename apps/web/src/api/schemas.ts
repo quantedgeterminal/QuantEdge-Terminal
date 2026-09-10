@@ -25,6 +25,25 @@ export const LatencySummary = z.object({
 })
 export type LatencySummary = z.infer<typeof LatencySummary>
 
+/** A channel in the `/arrivals` response table. */
+export const PathRef = z.object({ pathId: z.int(), name: z.string(), kind: PathKind })
+export type PathRef = z.infer<typeof PathRef>
+
+/** A book event with per-channel arrivals (FR-021); `lagMs` exists only for real ones (FR-003c). */
+export const ArrivalEvent = z.object({
+  eventId: z.string(),
+  firstRealMs: z.int(),
+  arrivals: z.array(z.object({ pathId: z.int(), kind: PathKind, lagMs: z.int().nullable() })),
+})
+export type ArrivalEvent = z.infer<typeof ArrivalEvent>
+
+export const Arrivals = z.object({
+  windowSec: z.int(),
+  paths: z.array(PathRef),
+  events: z.array(ArrivalEvent),
+})
+export type Arrivals = z.infer<typeof Arrivals>
+
 export const Market = z.object({
   id: z.int(),
   label: z.string(),

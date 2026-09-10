@@ -93,6 +93,7 @@ async function firstSseFrame(res: Response): Promise<unknown> {
 /** Every route that carries channel data. A new route with channels goes here. */
 const CHANNEL_ROUTES = [
   '/markets/1/latency',
+  '/markets/1/arrivals',
   '/markets/1/stream',
   '/markets/1/stream?offsetMs=100&source=user',
 ]
@@ -133,5 +134,26 @@ describe('pathKind audit (SC-007)', () => {
       ['emu-fast', 'emulated', null],
     ])
     expect((await app.request('/markets/9/latency')).status).toBe(404)
+  })
+
+  it('/arrivals: event rows with lag only on real channels, emulation without it', async () => {
+    const res = await app.request('/markets/1/arrivals')
+    const body = (await res.json()) as {
+      windowSec: number
+      paths: { pathId: number; kind: string }[]
+      events: {
+        eventId: string
+        arrivals: { pathId: number; kind: string; lagMs: number | null }[]
+      }[]
+    }
+    expect(body.windowSec).toBe(60)
+    expect(body.paths.map((p) => p.kind)).toEqual(['real', 'real', 'emulated'])
+    expect(body.events.map((e) => e.eventId)).toEqual(['1'])
+    expect(body.events[0]?.arrivals).toEqual([
+      { pathId: 1, kind: 'real', lagMs: 0 },
+      { pathId: 2, kind: 'real', lagMs: 35 },
+      { pathId: 3, kind: 'emulated', lagMs: null },
+    ])
+    expect((await app.request('/markets/9/arrivals')).status).toBe(404)
   })
 })

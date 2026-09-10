@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { type ArrivalRow, aggregateLatency, type PathRow, percentile } from '../src/latency.ts'
+import {
+  type ArrivalRow,
+  aggregateLatency,
+  type PathRow,
+  percentile,
+  recentArrivals,
+} from '../src/latency.ts'
 
 const A: PathRow = { id: 1, name: 'helius', kind: 'real' }
 const B: PathRow = { id: 2, name: 'alchemy', kind: 'real' }
@@ -86,5 +92,37 @@ describe('aggregateLatency (FR-003, FR-003c)', () => {
       ['alchemy', 'real'],
       ['emu-fast', 'emulated'],
     ])
+  })
+})
+
+describe('recentArrivals (FR-021, FR-003c)', () => {
+  it('events with ≥ 2 real channels, newest first, lag from the earliest real one; emulation without lag', () => {
+    const rows = [
+      ...event(1, { 1: 1000, 2: 1040, 3: 900 }), // emulation "before everyone" does not move the reference point
+      ...event(2, { 1: 2030, 2: 2000 }),
+      ...event(3, { 1: 3000 }), // only one real channel — not a compare row
+      ...event(4, { 1: 4000, 2: 4100 }),
+    ]
+    const ev = recentArrivals([A, B, E], rows, 10)
+    expect(ev.map((e) => e.eventId)).toEqual(['4', '2', '1'])
+    expect(ev[2]).toEqual({
+      eventId: '1',
+      firstRealMs: 1000,
+      arrivals: [
+        { pathId: 1, kind: 'real', lagMs: 0 },
+        { pathId: 2, kind: 'real', lagMs: 40 },
+        { pathId: 3, kind: 'emulated', lagMs: null },
+      ],
+    })
+    expect(ev[1]?.arrivals).toEqual([
+      { pathId: 1, kind: 'real', lagMs: 30 },
+      { pathId: 2, kind: 'real', lagMs: 0 },
+    ])
+  })
+
+  it('trims to the `limit` newest', () => {
+    const rows = [1, 2, 3, 4, 5].flatMap((i) => event(i, { 1: i * 1000, 2: i * 1000 + i }))
+    const ev = recentArrivals([A, B], rows, 2)
+    expect(ev.map((e) => e.eventId)).toEqual(['5', '4'])
   })
 })

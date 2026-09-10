@@ -250,12 +250,20 @@ export default function TerminalScreen() {
       <main className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6">
         <div className="mb-5 flex items-baseline justify-between gap-4">
           <h1 className="qe-mono text-[13px] text-[hsl(var(--qe-text))]">{title}</h1>
-          <Link
-            to="/"
-            className="qe-mono text-[12px] text-[hsl(var(--qe-accent))] underline underline-offset-4"
-          >
-            New run
-          </Link>
+          <span className="flex gap-4">
+            <Link
+              to={`/markets/${id}/compare`}
+              className="qe-mono text-[12px] text-[hsl(var(--qe-accent))] underline underline-offset-4"
+            >
+              Compare channels
+            </Link>
+            <Link
+              to="/"
+              className="qe-mono text-[12px] text-[hsl(var(--qe-accent))] underline underline-offset-4"
+            >
+              New run
+            </Link>
+          </span>
         </div>
 
         {problem && (

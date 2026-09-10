@@ -127,3 +127,58 @@ function summarize(p: PathRow, lagsUnsorted: number[], laterCount: number): Path
     laterPct: lags.length === 0 ? null : Math.trunc((laterCount * 100) / lags.length),
   }
 }
+
+/** One book event with the arrival time per channel — a compare-screen row (FR-021). */
+export interface ArrivalEvent {
+  /** `book_updates.id` as a string: bigint does not travel in JSON. */
+  readonly eventId: string
+  /** Earliest arrival over a **real** channel, epoch ms — the lanes' reference point. */
+  readonly firstRealMs: number
+  /**
+   * Arrivals per channel: lag behind `firstRealMs` in ms. Emulated channels
+   * have no lag (FR-003c); `kind` in every entry, because this is channel data (SC-007).
+   */
+  readonly arrivals: readonly {
+    readonly pathId: number
+    readonly kind: PathKind
+    readonly lagMs: number | null
+  }[]
+}
+
+/**
+ * The last `limit` events that arrived over at least two real channels, newest
+ * first. Lag is computed the same way as in `aggregateLatency`: from the earliest
+ * real one. An emulated channel is present in the row only as the fact of arrival — its
+ * difference from a real one equals the profile and is not a measurement, hence `lagMs: null`.
+ */
+export function recentArrivals(
+  paths: readonly PathRow[],
+  rows: readonly ArrivalRow[],
+  limit: number,
+): ArrivalEvent[] {
+  const kindOf = new Map(paths.map((p) => [p.id, p.kind]))
+  const events: ArrivalEvent[] = []
+  for (const [eventId, list] of groupByEvent(rows, kindOf)) {
+    const real = list.filter((r) => kindOf.get(r.pathId) === 'real')
+    if (real.length < 2) continue
+    const earliest = real.reduce(
+      (m, r) => (r.receivedAtUs < m ? r.receivedAtUs : m),
+      real[0]?.receivedAtUs ?? 0n,
+    )
+    events.push({
+      eventId: eventId.toString(),
+      firstRealMs: Number(earliest / 1000n),
+      arrivals: [...list]
+        .sort((a, b) => a.pathId - b.pathId)
+        .map((r) => ({
+          pathId: r.pathId,
+          kind: kindOf.get(r.pathId) ?? 'emulated',
+          lagMs:
+            kindOf.get(r.pathId) === 'real'
+              ? Math.round(Number(r.receivedAtUs - earliest) / 1000)
+              : null,
+        })),
+    })
+  }
+  return events.sort((a, b) => b.firstRealMs - a.firstRealMs).slice(0, limit)
+}

@@ -1,5 +1,5 @@
 import { ParamError, presets } from '@quantedge/engine'
-import { aggregateLatency } from '@quantedge/shared'
+import { aggregateLatency, recentArrivals } from '@quantedge/shared'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { missingRanges } from './coverage.ts'
@@ -121,6 +121,27 @@ export function createApp(
     const sinceMs = now() - LATENCY_WINDOW_SEC * 1000
     const [paths, rows] = await Promise.all([repo.paths(), repo.arrivalsSince(id, sinceMs)])
     return c.json(aggregateLatency(paths, rows, LATENCY_WINDOW_SEC))
+  })
+
+  /** How many latest events the compare screen gets (FR-021). */
+  const ARRIVALS_LIMIT = 40
+
+  /**
+   * Latest events with the arrival time per channel (FR-021, T047): lane rows
+   * for the compare screen. Same window and same reference as `/latency`;
+   * an emulated channel appears in the row without a lag (FR-003c).
+   */
+  app.get('/markets/:id/arrivals', validated('param', MarketIdParam), async (c) => {
+    const { id } = c.req.valid('param')
+    const market = await repo.getMarket(id)
+    if (!market) return c.json({ error: 'market_not_found' }, 404)
+    const sinceMs = now() - LATENCY_WINDOW_SEC * 1000
+    const [paths, rows] = await Promise.all([repo.paths(), repo.arrivalsSince(id, sinceMs)])
+    return c.json({
+      windowSec: LATENCY_WINDOW_SEC,
+      paths: paths.map((p) => ({ pathId: p.id, name: p.name, kind: p.kind })),
+      events: recentArrivals(paths, rows, ARRIVALS_LIMIT),
+    })
   })
 
   /**

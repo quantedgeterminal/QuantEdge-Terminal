@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router'
 import Banner from './components/Banner.tsx'
+import CompareScreen from './pages/CompareScreen.tsx'
 import ResultScreen from './pages/ResultScreen.tsx'
 import RunScreen from './pages/RunScreen.tsx'
 import TerminalScreen from './pages/TerminalScreen.tsx'
@@ -20,6 +21,7 @@ export const App = () => (
         <Route path="/" element={<RunScreen />} />
         <Route path="/runs/:runId" element={<ResultScreen />} />
         <Route path="/markets/:marketId" element={<TerminalScreen />} />
+        <Route path="/markets/:marketId/compare" element={<CompareScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
