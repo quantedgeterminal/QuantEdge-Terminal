@@ -1,8 +1,9 @@
 import { ParamError, presets } from '@quantedge/engine'
 import { aggregateLatency, recentArrivals } from '@quantedge/shared'
-import { Hono } from 'hono'
+import { type Context, Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { missingRanges } from './coverage.ts'
+import { checkQuota, clientIpFrom, DEFAULT_QUOTA, type QuotaLimits } from './quota.ts'
 import type { Repo, StrategyRow } from './repo.ts'
 import { executeRun, mergeParams, runDto } from './runs.ts'
 import {
@@ -57,7 +58,14 @@ export interface AppOptions {
   /** Live stream polling period; a frame goes out on an event change or on heartbeat. */
   readonly streamPollMs?: number
   readonly streamHeartbeatMs?: number
+  /** Run quota (FR-023); tests narrow it. */
+  readonly quota?: QuotaLimits
+  /** Connection IP from the server adapter; without it only `X-Forwarded-For`. */
+  readonly connectionIp?: (c: Context) => string | null
 }
+
+/** Ceiling on a run's period length (PLAN "period bounded from above"): 24 h — client decision 2026-09-11. */
+export const MAX_PERIOD_MS = 24 * 3_600_000
 
 export function createApp(
   repo: Repo,
@@ -67,6 +75,7 @@ export function createApp(
 ) {
   const pollMs = options.streamPollMs ?? 500
   const heartbeatMs = options.streamHeartbeatMs ?? 1000
+  const quota = options.quota ?? DEFAULT_QUOTA
   const app = new Hono()
 
   app.get('/health', (c) => c.json({ ok: true }))
@@ -207,6 +216,16 @@ export function createApp(
         400,
       )
     }
+    if (toMs - fromMs > MAX_PERIOD_MS) {
+      return c.json(
+        {
+          error: 'period_too_long',
+          field: 'to',
+          message: `a run covers at most ${MAX_PERIOD_MS / 3_600_000} hours`,
+        },
+        400,
+      )
+    }
 
     const market = await repo.getMarket(body.marketId)
     if (!market) return c.json({ error: 'market_not_found' }, 404)
@@ -214,6 +233,14 @@ export function createApp(
     const resolved = resolveParams(body.preset, body.params)
     if ('problem' in resolved) return c.json(paramProblem(resolved.problem), 400)
     const { params } = resolved
+
+    // FR-023: the quota is checked before any data is read — a refusal costs nothing.
+    const clientIp = clientIpFrom(c.req.header('x-forwarded-for'), options.connectionIp?.(c))
+    const over = await checkQuota(repo, { sessionKey, clientIp }, quota, now())
+    if (over) {
+      c.header('Retry-After', String(over.retryAfterSec))
+      return c.json(over, 429)
+    }
 
     // FR-014 / SC-009: a run over incomplete data does not start; name what is missing.
     const gaps = missingRanges(await repo.coverage(market.id), { fromMs, toMs })
@@ -232,6 +259,7 @@ export function createApp(
 
     const run = await repo.createRun({
       sessionKey,
+      clientIp,
       marketId: market.id,
       fromMs,
       toMs,

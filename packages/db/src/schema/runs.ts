@@ -64,8 +64,13 @@ export const backtestRuns = pgTable(
     error: text(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     finishedAt: timestamp('finished_at', { withTimezone: true }),
+    /** Client IP for the quota (FR-023); `null` if the adapter does not know it. Not personal data in the FR-022a sense: not linked to a person and never sent out. */
+    clientIp: text('client_ip'),
   },
-  (t) => [index('backtest_runs_session_idx').on(t.sessionKey, t.createdAt)],
+  (t) => [
+    index('backtest_runs_session_idx').on(t.sessionKey, t.createdAt),
+    index('backtest_runs_ip_idx').on(t.clientIp, t.createdAt),
+  ],
 )
 
 /**

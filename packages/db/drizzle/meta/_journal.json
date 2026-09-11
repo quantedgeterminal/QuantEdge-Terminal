@@ -15,6 +15,13 @@
       "when": 1789127112984,
       "tag": "0001_run_results_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789132300550,
+      "tag": "0002_run_client_ip",
+      "breakpoints": true
     }
   ]
 }

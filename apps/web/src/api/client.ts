@@ -7,6 +7,7 @@ import {
   Market,
   MissingRanges,
   Preset,
+  QuotaProblem,
   Run,
   Strategy,
 } from './schemas.ts'
@@ -35,6 +36,16 @@ export class IncompletePeriod extends ApiError {
     super(409, 'incomplete_period', 'period is not fully recorded')
     this.name = 'IncompletePeriod'
     this.missingRanges = ranges
+  }
+}
+
+/** Run quota exhausted (FR-023). */
+export class QuotaExceeded extends ApiError {
+  readonly problem: QuotaProblem
+  constructor(problem: QuotaProblem) {
+    super(429, 'quota_exceeded', 'run quota reached')
+    this.name = 'QuotaExceeded'
+    this.problem = problem
   }
 }
 
@@ -141,6 +152,8 @@ export const api = {
     if (gaps.success) throw new IncompletePeriod(gaps.data.missingRanges)
     const field = FieldProblem.safeParse(json)
     if (field.success) throw new InvalidField(field.data)
+    const quota = QuotaProblem.safeParse(json)
+    if (quota.success) throw new QuotaExceeded(quota.data)
     throw new ApiError(res.status, `http_${res.status}`, `POST /runs → ${res.status}`, json)
   },
 

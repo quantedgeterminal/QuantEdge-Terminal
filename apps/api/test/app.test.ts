@@ -392,3 +392,82 @@ describe('/strategies — saved configurations on the session key (FR-017, FR-02
     expect(run.params).toEqual(saved.params)
   })
 })
+
+describe('FR-023: run quota per session and per IP; period ceiling', () => {
+  const T = 1_800_000_000_000
+  function quotaSetup() {
+    const s = setup()
+    // Same repo, a narrower quota and its own clock.
+    const app = createApp(
+      s.repo,
+      () => 'x',
+      () => s.repo.nowMs,
+      {
+        quota: { windowSec: 3600, perSession: 2, perIp: 3 },
+      },
+    )
+    s.repo.nowMs = T
+    return { ...s, app }
+  }
+  const run = (app: ReturnType<typeof createApp>, session: string, ip: string) =>
+    app.request('/runs', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'X-Session-Key': session,
+        'X-Forwarded-For': `${ip}, 10.0.0.1`,
+      },
+      body: JSON.stringify(goodRun),
+    })
+
+  it('third run of a session in the window — 429 with retryAfterSec and Retry-After; allowed again after the window', async () => {
+    const s = quotaSetup()
+    expect((await run(s.app, SESSION, '1.1.1.1')).status).toBe(201)
+    s.repo.nowMs = T + 600_000
+    expect((await run(s.app, SESSION, '1.1.1.1')).status).toBe(201)
+    s.repo.nowMs = T + 1_200_000
+    const res = await run(s.app, SESSION, '1.1.1.1')
+    expect(res.status).toBe(429)
+    expect(await res.json()).toEqual({
+      error: 'quota_exceeded',
+      scope: 'session',
+      limit: 2,
+      windowSec: 3600,
+      retryAfterSec: 2400, // the oldest (T) drops out of the window in 3600 − 1200 s
+    })
+    expect(res.headers.get('Retry-After')).toBe('2400')
+    expect(s.repo.runs.size).toBe(2)
+    s.repo.nowMs = T + 3_601_000 // window [now − 3600 s, now]: the run at T is already outside it
+    expect((await run(s.app, SESSION, '1.1.1.1')).status).toBe(201)
+  })
+
+  it('new sessions from one IP hit the IP ceiling; another IP does not', async () => {
+    const s = quotaSetup()
+    const sessions = [
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    ]
+    expect((await run(s.app, sessions[0] ?? '', '2.2.2.2')).status).toBe(201)
+    expect((await run(s.app, sessions[0] ?? '', '2.2.2.2')).status).toBe(201)
+    expect((await run(s.app, sessions[1] ?? '', '2.2.2.2')).status).toBe(201)
+    const res = await run(s.app, sessions[1] ?? '', '2.2.2.2')
+    expect(res.status).toBe(429)
+    expect(await res.json()).toMatchObject({ scope: 'ip', limit: 3 })
+    expect((await run(s.app, sessions[1] ?? '', '3.3.3.3')).status).toBe(201)
+  })
+
+  it('without any IP only the session is counted', async () => {
+    const s = quotaSetup()
+    expect((await postRun(s.app, goodRun, OTHER)).status).toBe(201)
+    expect((await postRun(s.app, goodRun, OTHER)).status).toBe(201)
+    expect((await postRun(s.app, goodRun, OTHER)).status).toBe(429)
+  })
+
+  it('period longer than 24 h — 400 `period_too_long` on field `to`, no data read', async () => {
+    const s = setup()
+    const res = await postRun(s.app, { ...goodRun, from: iso(T0), to: iso(T0 + 25 * HOUR) })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: 'period_too_long', field: 'to' })
+    expect(s.repo.bookReads).toBe(0)
+  })
+})

@@ -11,7 +11,7 @@ import {
   strategies,
 } from '@quantedge/db'
 import type { LevelResult } from '@quantedge/engine'
-import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, lte, min, sql } from 'drizzle-orm'
 import type { Repo, RunRow, StrategyRow } from './repo.ts'
 
 const ms = (d: Date): number => d.getTime()
@@ -131,11 +131,35 @@ export function drizzleRepo(db: Db): Repo {
         .onConflictDoUpdate({ target: sessions.key, set: { lastSeenAt: sql`now()` } })
     },
 
+    async runsBySession(sessionKey, sinceMs) {
+      const [row] = await db
+        .select({ count: count(), oldest: min(backtestRuns.createdAt) })
+        .from(backtestRuns)
+        .where(
+          and(
+            eq(backtestRuns.sessionKey, sessionKey),
+            gte(backtestRuns.createdAt, new Date(sinceMs)),
+          ),
+        )
+      return { count: row?.count ?? 0, oldestMs: row?.oldest ? ms(row.oldest) : null }
+    },
+
+    async runsByIp(clientIp, sinceMs) {
+      const [row] = await db
+        .select({ count: count(), oldest: min(backtestRuns.createdAt) })
+        .from(backtestRuns)
+        .where(
+          and(eq(backtestRuns.clientIp, clientIp), gte(backtestRuns.createdAt, new Date(sinceMs))),
+        )
+      return { count: row?.count ?? 0, oldestMs: row?.oldest ? ms(row.oldest) : null }
+    },
+
     async createRun(run) {
       const [row] = await db
         .insert(backtestRuns)
         .values({
           sessionKey: run.sessionKey,
+          clientIp: run.clientIp,
           marketId: run.marketId,
           fromTs: new Date(run.fromMs),
           toTs: new Date(run.toMs),

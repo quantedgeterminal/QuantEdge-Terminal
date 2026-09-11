@@ -8,6 +8,7 @@ import type {
   NewStrategy,
   Repo,
   RunRow,
+  RunTally,
   StrategyRow,
 } from './repo.ts'
 
@@ -21,6 +22,10 @@ export class MemoryRepo implements Repo {
   readonly arrivalRows = new Map<number, (ArrivalRow & { tMs: number })[]>()
   readonly sessions = new Set<string>()
   readonly runs = new Map<string, RunRow>()
+  /** IP per run — kept apart from `RunRow` because it is never sent out. */
+  readonly runIps = new Map<string, string | null>()
+  /** Clock for `createdAtMs`; quota tests move it. */
+  nowMs = 1_700_000_000_000
   readonly resultRows = new Map<string, LevelResult[]>()
   readonly strategies = new Map<string, StrategyRow>()
   private nextRun = 1
@@ -60,17 +65,38 @@ export class MemoryRepo implements Repo {
   async touchSession(key: string) {
     this.sessions.add(key)
   }
+  private tally(rows: RunRow[], sinceMs: number): RunTally {
+    const inWindow = rows.filter((r) => r.createdAtMs >= sinceMs)
+    return {
+      count: inWindow.length,
+      oldestMs: inWindow.length === 0 ? null : Math.min(...inWindow.map((r) => r.createdAtMs)),
+    }
+  }
+  async runsBySession(sessionKey: string, sinceMs: number) {
+    return this.tally(
+      [...this.runs.values()].filter((r) => r.sessionKey === sessionKey),
+      sinceMs,
+    )
+  }
+  async runsByIp(clientIp: string, sinceMs: number) {
+    return this.tally(
+      [...this.runs.values()].filter((r) => this.runIps.get(r.id) === clientIp),
+      sinceMs,
+    )
+  }
   async createRun(run: NewRun) {
     const id = `00000000-0000-4000-8000-${String(this.nextRun++).padStart(12, '0')}`
+    const { clientIp, ...rest } = run
     const row: RunRow = {
-      ...run,
+      ...rest,
       id,
       status: 'running',
       error: null,
-      createdAtMs: 1_700_000_000_000,
+      createdAtMs: this.nowMs,
       finishedAtMs: null,
     }
     this.runs.set(id, row)
+    this.runIps.set(id, clientIp)
     return row
   }
   async getRun(id: string) {

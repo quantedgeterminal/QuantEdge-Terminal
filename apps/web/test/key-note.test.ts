@@ -15,3 +15,15 @@ describe('anonymous key explanation (FR-022a, T046)', () => {
     expect(EMPTY_LIST_NOTE).toContain(KEY_NOTE)
   })
 })
+
+describe('quota text (FR-023)', () => {
+  it('names the limit, the window, whom it applies to and when it is allowed again', async () => {
+    const { quotaText } = await import('../src/pages/RunScreen.tsx')
+    expect(quotaText({ scope: 'session', limit: 30, windowSec: 3600, retryAfterSec: 2400 })).toBe(
+      'Run quota reached: 30 runs per 60 min for this browser session. The oldest run leaves the window in 40 min; nothing was run.',
+    )
+    expect(quotaText({ scope: 'ip', limit: 120, windowSec: 3600, retryAfterSec: 45 })).toMatch(
+      /this network address.*in 45 s/,
+    )
+  })
+})

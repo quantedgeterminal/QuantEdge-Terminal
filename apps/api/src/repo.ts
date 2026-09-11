@@ -46,8 +46,16 @@ export interface RunRow {
   readonly finishedAtMs: number | null
 }
 
+/** What the quota needs (FR-023): how many runs are in the window and when the oldest was. */
+export interface RunTally {
+  readonly count: number
+  readonly oldestMs: number | null
+}
+
 export interface NewRun {
   readonly sessionKey: string
+  /** Client IP for the quota; `null` if unknown. */
+  readonly clientIp: string | null
   readonly marketId: number
   readonly fromMs: number
   readonly toMs: number
@@ -88,6 +96,10 @@ export interface Repo {
   arrivalsSince(marketId: number, sinceMs: number): Promise<ArrivalRow[]>
 
   touchSession(key: string): Promise<void>
+  /** Runs of a session created after `sinceMs` (quota, FR-023). */
+  runsBySession(sessionKey: string, sinceMs: number): Promise<RunTally>
+  /** Runs from an IP created after `sinceMs`. */
+  runsByIp(clientIp: string, sinceMs: number): Promise<RunTally>
   createRun(run: NewRun): Promise<RunRow>
   getRun(id: string): Promise<RunRow | null>
   finishRun(id: string, results: readonly LevelResult[]): Promise<void>

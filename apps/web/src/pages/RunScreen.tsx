@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { ApiError, api, IncompletePeriod, InvalidField } from '../api/client.ts'
+import { ApiError, api, IncompletePeriod, InvalidField, QuotaExceeded } from '../api/client.ts'
 import type { CoverageSegment, Market, Preset, Strategy } from '../api/schemas.ts'
 import { ParamEditor } from '../components/ParamEditor.tsx'
 import { Shell } from '../components/Shell.tsx'
@@ -487,7 +487,21 @@ export default function RunScreen() {
   )
 }
 
+/** FR-023: how much is allowed, to whom and when it is allowed again — no "try later". */
+export function quotaText(q: {
+  scope: string
+  limit: number
+  windowSec: number
+  retryAfterSec: number
+}): string {
+  const who = q.scope === 'session' ? 'this browser session' : 'this network address'
+  const wait =
+    q.retryAfterSec < 90 ? `${q.retryAfterSec} s` : `${Math.ceil(q.retryAfterSec / 60)} min`
+  return `Run quota reached: ${q.limit} runs per ${q.windowSec / 60} min for ${who}. The oldest run leaves the window in ${wait}; nothing was run.`
+}
+
 function describe(e: unknown): string {
+  if (e instanceof QuotaExceeded) return quotaText(e.problem)
   if (e instanceof InvalidField) return `${e.field}: ${e.message}`
   if (e instanceof ApiError) return `API error ${e.status} (${e.code}).`
   if (e instanceof Error) return `Could not reach the API: ${e.message}`

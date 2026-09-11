@@ -144,8 +144,18 @@ export type Strategy = z.infer<typeof Strategy>
 
 /** An error on a specific field (FR-016): a preset parameter or any other request field. */
 export const FieldProblem = z.object({
-  error: z.enum(['invalid_params', 'invalid_request', 'invalid_period']),
+  error: z.enum(['invalid_params', 'invalid_request', 'invalid_period', 'period_too_long']),
   field: z.string(),
   message: z.string(),
 })
 export type FieldProblem = z.infer<typeof FieldProblem>
+
+/** Run quota exhausted (FR-023): which one and when it is allowed again. */
+export const QuotaProblem = z.object({
+  error: z.literal('quota_exceeded'),
+  scope: z.enum(['session', 'ip']),
+  limit: z.int(),
+  windowSec: z.int(),
+  retryAfterSec: z.int(),
+})
+export type QuotaProblem = z.infer<typeof QuotaProblem>
