@@ -73,6 +73,12 @@ pnpm --filter @quantedge/api dev:memory
 pnpm --filter @quantedge/web dev
 ```
 
+The collector also prunes: with `RETENTION_HOURS` set it deletes book updates
+older than that window once an hour and shortens `dataset_coverage` to match, so
+a run can never be offered a period whose data is gone. `FROZEN_FROM`/`FROZEN_TO`
+fence one reference dataset the pruning never touches. Unset `RETENTION_HOURS`
+to keep everything.
+
 `pnpm gate` runs lint, typecheck and every test suite; it is the bar for each
 commit.
 

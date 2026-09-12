@@ -27,7 +27,7 @@ describe('Ingestor', () => {
       [10, 1_000_050n],
       [11, 1_000_000n],
     ])
-    expect(stored).toEqual([1, 1])
+    expect(stored).toEqual([1]) // the coverage counter counts states, not arrivals
   })
 
   it('levels are the packed top-N from the decoder, not the raw account', async () => {

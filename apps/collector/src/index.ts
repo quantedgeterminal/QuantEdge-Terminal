@@ -1,9 +1,10 @@
 import { createDb } from '@quantedge/db'
 import { nowUs, RpcWsPath, type Unsubscribe } from '@quantedge/venue'
 import pino from 'pino'
-import { loadEnv } from './config.ts'
+import { frozenInterval, loadEnv } from './config.ts'
 import { CoverageTracker } from './coverage.ts'
 import { Ingestor } from './ingest.ts'
+import { Retention } from './retention.ts'
 import { DrizzleSink, resolveIds } from './sink.ts'
 
 const env = loadEnv()
@@ -64,9 +65,41 @@ const heartbeat = setInterval(() => {
   }
 }, env.COVERAGE_HEARTBEAT_SEC * 1000)
 
+// T054: cleanup in this same process — the coverage tracker learns about the open segment's shift immediately.
+const retention =
+  env.RETENTION_HOURS === undefined
+    ? null
+    : new Retention(
+        sink,
+        {
+          retentionUs: BigInt(env.RETENTION_HOURS) * 3_600_000_000n,
+          frozen: frozenInterval(env),
+          batch: env.RETENTION_BATCH,
+        },
+        log,
+      )
+let retaining = false
+async function retain(): Promise<void> {
+  if (retention === null || retaining) return
+  retaining = true
+  try {
+    for (const [marketId, tracker] of trackers) {
+      await retention.run(marketId, nowUs(), tracker)
+    }
+  } catch (e) {
+    log.error({ err: e }, 'retention failed')
+  } finally {
+    retaining = false
+  }
+}
+const retentionTimer =
+  retention === null ? null : setInterval(() => void retain(), env.RETENTION_INTERVAL_MIN * 60_000)
+void retain()
+
 async function shutdown(signal: string): Promise<void> {
   log.info({ signal }, 'shutting down')
   clearInterval(heartbeat)
+  if (retentionTimer !== null) clearInterval(retentionTimer)
   for (const unsub of subscriptions) await unsub().catch(() => {})
   for (const t of trackers.values()) await t.close()
   await sql.end({ timeout: 5 })
@@ -76,6 +109,12 @@ process.once('SIGINT', () => void shutdown('SIGINT'))
 process.once('SIGTERM', () => void shutdown('SIGTERM'))
 
 log.info(
-  { markets: [...ids.markets.keys()], paths: pathDefs.map((p) => p.name), depth: env.BOOK_DEPTH },
+  {
+    markets: [...ids.markets.keys()],
+    paths: pathDefs.map((p) => p.name),
+    depth: env.BOOK_DEPTH,
+    retentionHours: env.RETENTION_HOURS ?? null,
+    frozen: env.FROZEN_FROM === undefined ? null : [env.FROZEN_FROM, env.FROZEN_TO],
+  },
   'collector started',
 )

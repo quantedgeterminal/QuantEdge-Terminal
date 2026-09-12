@@ -11,16 +11,16 @@ export class MemorySink implements Sink {
     return `${e.marketId}:${e.slot}:${Buffer.from(e.stateHash).toString('hex')}`
   }
 
-  async upsertBookUpdate(e: BookEvent): Promise<bigint> {
+  async upsertBookUpdate(e: BookEvent): Promise<{ id: bigint; inserted: boolean }> {
     const k = this.key(e)
     const existing = this.updates.get(k)
     if (existing) {
       if (e.receivedAtUs < existing.firstSeenUs) existing.firstSeenUs = e.receivedAtUs
-      return existing.id
+      return { id: existing.id, inserted: false }
     }
     const id = this.nextId++
     this.updates.set(k, { id, event: e, firstSeenUs: e.receivedAtUs })
-    return id
+    return { id, inserted: true }
   }
 
   async insertArrival(bookUpdateId: bigint, pathId: number, receivedAtUs: bigint): Promise<void> {

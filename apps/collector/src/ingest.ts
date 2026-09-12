@@ -39,7 +39,7 @@ export class Ingestor {
       this.log.warn({ marketId, pathId, slot: u.slot, err: String(e) }, 'book does not decode')
       return
     }
-    const id = await this.sink.upsertBookUpdate({
+    const { id, inserted } = await this.sink.upsertBookUpdate({
       marketId,
       slot: u.slot,
       stateHash: stateHash(u.data),
@@ -47,6 +47,7 @@ export class Ingestor {
       receivedAtUs: u.receivedAtUs,
     })
     await this.sink.insertArrival(id, pathId, u.receivedAtUs)
-    this.onStored(marketId)
+    // The coverage counter counts book states; a second arrival of the same event does not move it.
+    if (inserted) this.onStored(marketId)
   }
 }

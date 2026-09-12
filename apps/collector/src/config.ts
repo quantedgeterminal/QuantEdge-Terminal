@@ -24,6 +24,13 @@ export const CollectorEnv = z.object({
   LIVENESS_TIMEOUT_SEC: z.coerce.number().int().min(1).prefault(5),
   /** How often to persist `to_ts` of the open coverage segment. */
   COVERAGE_HEARTBEAT_SEC: z.coerce.number().int().min(1).prefault(10),
+  /** Retention (T054): how many hours of full data to keep; unset — never delete. */
+  RETENTION_HOURS: z.coerce.number().int().min(1).optional(),
+  RETENTION_INTERVAL_MIN: z.coerce.number().int().min(1).prefault(60),
+  RETENTION_BATCH: z.coerce.number().int().min(1).prefault(5000),
+  /** Frozen interval — the reference dataset the cleanup never touches. Both or neither. */
+  FROZEN_FROM: z.iso.datetime().optional(),
+  FROZEN_TO: z.iso.datetime().optional(),
 })
 
 export type CollectorEnv = z.infer<typeof CollectorEnv>
@@ -39,5 +46,21 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): CollectorEnv {
       'RPC_A and RPC_B are the same address: a differential measurement needs two independent channels',
     )
   }
+  const { FROZEN_FROM, FROZEN_TO } = parsed.data
+  if ((FROZEN_FROM === undefined) !== (FROZEN_TO === undefined)) {
+    throw new Error('FROZEN_FROM and FROZEN_TO go together')
+  }
+  if (FROZEN_FROM !== undefined && FROZEN_TO !== undefined && FROZEN_FROM >= FROZEN_TO) {
+    throw new Error('FROZEN_FROM must be earlier than FROZEN_TO')
+  }
   return parsed.data
+}
+
+/** Frozen interval in epoch µs, or `null` when not set. */
+export function frozenInterval(env: CollectorEnv): { fromUs: bigint; toUs: bigint } | null {
+  if (env.FROZEN_FROM === undefined || env.FROZEN_TO === undefined) return null
+  return {
+    fromUs: BigInt(Date.parse(env.FROZEN_FROM)) * 1000n,
+    toUs: BigInt(Date.parse(env.FROZEN_TO)) * 1000n,
+  }
 }

@@ -31,6 +31,26 @@ export class CoverageTracker {
     return this.openFromUs !== null
   }
 
+  /** Start of the open segment — the key of the `dataset_coverage` row the tracker extends. */
+  get openFrom(): bigint | null {
+    return this.openFromUs
+  }
+
+  get storedCount(): number {
+    return this.count
+  }
+
+  /**
+   * The cleanup (T054) moved the start of the open segment: from here on we extend the new
+   * row. `persistedToUs` is reset so the next tick writes `to_ts` immediately.
+   */
+  rebase(fromUs: bigint, count: number): void {
+    if (this.openFromUs === null) return
+    this.openFromUs = fromUs
+    this.count = count
+    this.persistedToUs = null
+  }
+
   /** A slot from a channel proves the channel is alive at that moment. */
   async pathAlive(pathId: number, atUs: bigint): Promise<void> {
     this.lastSlotAt.set(pathId, atUs)
