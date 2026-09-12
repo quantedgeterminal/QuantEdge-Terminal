@@ -62,6 +62,8 @@ repo.markets.push({
   label: 'cbBTC/USDC',
   baseDecimals: BASE_DECIMALS,
   quoteDecimals: QUOTE_DECIMALS,
+  baseSymbol: 'cbBTC',
+  quoteSymbol: 'USDC',
   active: true,
 })
 const day = Date.parse('2026-09-01T00:00:00Z')

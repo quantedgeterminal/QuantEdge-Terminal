@@ -60,7 +60,7 @@ exactly.
 pnpm install
 cp .env.example .env            # two Postgres URLs, two INDEPENDENT RPC providers, markets
 pnpm --filter @quantedge/db migrate
-pnpm --filter @quantedge/collector seed
+pnpm --filter @quantedge/collector seed   # markets (symbols from MARKET_SYMBOLS) and the two channels
 pnpm --filter @quantedge/collector dev   # starts recording; 40 market-hours take 40 hours
 pnpm --filter @quantedge/api dev
 pnpm --filter @quantedge/web dev

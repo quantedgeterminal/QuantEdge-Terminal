@@ -18,6 +18,9 @@ export const markets = pgTable(
     quoteMint: text('quote_mint').notNull(),
     baseDecimals: smallint('base_decimals').notNull(),
     quoteDecimals: smallint('quote_decimals').notNull(),
+    /** Symbols come from the seed config (`MARKET_SYMBOLS`), not from the chain: a mint has no symbol without metadata. */
+    baseSymbol: text('base_symbol').notNull(),
+    quoteSymbol: text('quote_symbol').notNull(),
     label: text().notNull(),
     active: boolean().notNull().default(true),
   },

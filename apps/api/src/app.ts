@@ -102,6 +102,8 @@ export function createApp(
         active: m.active,
         baseDecimals: m.baseDecimals,
         quoteDecimals: m.quoteDecimals,
+        baseSymbol: m.baseSymbol,
+        quoteSymbol: m.quoteSymbol,
       })),
     )
   })

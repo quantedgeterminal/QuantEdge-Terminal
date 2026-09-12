@@ -39,6 +39,8 @@ function setup() {
     label: 'cbBTC/USDC',
     baseDecimals: 8,
     quoteDecimals: 6,
+    baseSymbol: 'cbBTC',
+    quoteSymbol: 'USDC',
     active: true,
   })
   repo.pathRows.push(

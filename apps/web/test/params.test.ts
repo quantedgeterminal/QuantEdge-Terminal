@@ -16,6 +16,8 @@ const market: Market = {
   active: true,
   baseDecimals: 8,
   quoteDecimals: 6,
+  baseSymbol: 'cbBTC',
+  quoteSymbol: 'USDC',
 }
 
 const notional: ParamSpec = {

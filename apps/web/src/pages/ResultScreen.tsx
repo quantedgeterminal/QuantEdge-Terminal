@@ -12,11 +12,6 @@ const COLUMNS = ['Delay', 'P&L', 'Trades', 'Unfilled', 'Avg slippage', 'Max draw
 const FOOTNOTE =
   'Same data, same parameters at every level. The only thing that differs between rows is when the strategy saw the book. Slippage is signed against the price the strategy saw; the limit turns worse prices into unfilled orders, so read slippage together with the unfilled share.'
 
-/** Quote currency symbol from the market label "BASE/QUOTE". */
-function quoteSymbol(label: string): string {
-  return label.split('/')[1] ?? 'quote'
-}
-
 /** A number for bar geometry only; no digit of it is rendered. */
 function geometry(atoms: string, decimals: number): number {
   return Number(atoms) / 10 ** decimals
@@ -50,7 +45,7 @@ function cells(r: LevelResult, decimals: number, quote: string): string[] {
 
 function Rows({ run }: { run: Run }) {
   const decimals = run.market.quoteDecimals
-  const quote = quoteSymbol(run.market.label)
+  const quote = run.market.quoteSymbol
   return (
     <>
       <table className="hidden w-full border-collapse md:table">
@@ -125,7 +120,7 @@ function costSentence(run: Run): string {
 
 function Loaded({ run, preset }: { run: Run; preset: Preset | undefined }) {
   const decimals = run.market.quoteDecimals
-  const quote = quoteSymbol(run.market.label)
+  const quote = run.market.quoteSymbol
   const header = [
     preset?.label ?? run.preset,
     formatRange(run.from, run.to),

@@ -51,6 +51,8 @@ export const Market = z.object({
   active: z.boolean(),
   baseDecimals: z.int(),
   quoteDecimals: z.int(),
+  baseSymbol: z.string(),
+  quoteSymbol: z.string(),
 })
 export type Market = z.infer<typeof Market>
 
@@ -114,6 +116,8 @@ export const Run = z.object({
     label: z.string(),
     baseDecimals: z.int(),
     quoteDecimals: z.int(),
+    baseSymbol: z.string(),
+    quoteSymbol: z.string(),
   }),
   preset: z.string(),
   params: z.record(z.string(), z.number()),

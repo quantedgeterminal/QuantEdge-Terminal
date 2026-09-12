@@ -14,6 +14,8 @@ const MARKET = {
   label: 'cbBTC/USDC',
   baseDecimals: 8,
   quoteDecimals: 6,
+  baseSymbol: 'cbBTC',
+  quoteSymbol: 'USDC',
   active: true,
 }
 
@@ -153,6 +155,8 @@ describe('GET /markets/:id/stream (T038)', () => {
       venue: 'manifest',
       baseDecimals: 8,
       quoteDecimals: 6,
+      baseSymbol: 'cbBTC',
+      quoteSymbol: 'USDC',
     })
   })
 

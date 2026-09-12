@@ -1,7 +1,7 @@
 import type { Market, ParamSpec } from './api/schemas.ts'
 
-/** What the market must provide to show amounts: the pair name and the quote decimals. */
-export type QuoteInfo = Pick<Market, 'label' | 'quoteDecimals'>
+/** What the market must provide to show amounts: the symbol and the quote decimals. */
+export type QuoteInfo = Pick<Market, 'quoteSymbol' | 'quoteDecimals'>
 
 /**
  * Preset parameters at the UI boundary (FR-015, FR-016). The engine and the API know only
@@ -12,7 +12,7 @@ export type QuoteInfo = Pick<Market, 'label' | 'quoteDecimals'>
 
 /** The unit a person sees: quote amounts in the market's currency. */
 export function unitLabel(spec: ParamSpec, market: QuoteInfo | undefined): string {
-  if (spec.unit === 'quote atoms') return market?.label.split('/')[1] ?? 'quote'
+  if (spec.unit === 'quote atoms') return market?.quoteSymbol ?? 'quote'
   return spec.unit
 }
 

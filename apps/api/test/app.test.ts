@@ -54,6 +54,8 @@ function setup() {
     label: 'cbBTC/USDC',
     baseDecimals: 8,
     quoteDecimals: 6,
+    baseSymbol: 'cbBTC',
+    quoteSymbol: 'USDC',
     active: true,
   })
   // Coverage: 08:00–14:00 and 16:00–18:00; a hole between them.
@@ -122,6 +124,8 @@ describe('reference data', () => {
         active: true,
         baseDecimals: 8,
         quoteDecimals: 6,
+        baseSymbol: 'cbBTC',
+        quoteSymbol: 'USDC',
       },
     ])
     const cov = (await (await s.app.request('/markets/1/coverage')).json()) as { from: string }[]

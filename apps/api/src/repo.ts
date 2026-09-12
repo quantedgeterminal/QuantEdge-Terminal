@@ -13,6 +13,8 @@ export interface MarketRow {
   readonly label: string
   readonly baseDecimals: number
   readonly quoteDecimals: number
+  readonly baseSymbol: string
+  readonly quoteSymbol: string
   readonly active: boolean
 }
 

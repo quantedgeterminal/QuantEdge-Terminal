@@ -20,6 +20,8 @@ export interface StreamFrame {
     readonly venue: string
     readonly baseDecimals: number
     readonly quoteDecimals: number
+    readonly baseSymbol: string
+    readonly quoteSymbol: string
   }
   readonly t: string
   readonly ageMs: number
@@ -55,6 +57,8 @@ function frame(row: BookRow, opts: StreamOptions, deliveredAtMs: number): Stream
       venue: m.venue,
       baseDecimals: m.baseDecimals,
       quoteDecimals: m.quoteDecimals,
+      baseSymbol: m.baseSymbol,
+      quoteSymbol: m.quoteSymbol,
     },
     t: new Date(row.tMs).toISOString(),
     ageMs,

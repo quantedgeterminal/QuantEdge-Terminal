@@ -111,6 +111,8 @@ export function runDto(run: RunRow, market: MarketRow, results: readonly LevelRe
       label: market.label,
       baseDecimals: market.baseDecimals,
       quoteDecimals: market.quoteDecimals,
+      baseSymbol: market.baseSymbol,
+      quoteSymbol: market.quoteSymbol,
     },
     preset: run.preset,
     params: run.params,

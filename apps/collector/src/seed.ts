@@ -1,8 +1,9 @@
 /**
- * Reference rows for the collector: markets from `MARKET_ADDRESSES` and two real channels from
- * `RPC_A_NAME`/`RPC_B_NAME`. Idempotent — running it again duplicates nothing.
+ * Reference rows for the collector: markets from `MARKET_ADDRESSES` (symbols from `MARKET_SYMBOLS`,
+ * because a mint without metadata has no symbol) and two real channels from `RPC_A_NAME`/`RPC_B_NAME`.
+ * Idempotent — running it again duplicates nothing but refreshes symbols and label.
  *
- *   pnpm --filter @quantedge/collector seed   (reads .env: DATABASE_URL_MIGRATE, MARKET_ADDRESSES, RPC_*_NAME)
+ *   pnpm --filter @quantedge/collector seed   (reads .env: DATABASE_URL_MIGRATE, MARKET_ADDRESSES, MARKET_SYMBOLS, RPC_*_NAME)
  */
 
 import { deliveryPaths, markets } from '@quantedge/db'
@@ -20,10 +21,27 @@ const Env = z.object({
       .map((a) => a.trim())
       .filter(Boolean),
   ),
+  /** "BASE/QUOTE" per address, in the same order. */
+  MARKET_SYMBOLS: z.string().transform((s) =>
+    s
+      .split(',')
+      .map((a) => a.trim())
+      .filter(Boolean)
+      .map((pair) => {
+        const [base, quote] = pair.split('/')
+        if (!base || !quote) throw new Error(`MARKET_SYMBOLS: expected BASE/QUOTE, got "${pair}"`)
+        return { base, quote }
+      }),
+  ),
   RPC_A_NAME: z.string().min(1),
   RPC_B_NAME: z.string().min(1),
 })
 const env = Env.parse(process.env)
+if (env.MARKET_SYMBOLS.length !== env.MARKET_ADDRESSES.length) {
+  throw new Error(
+    `MARKET_SYMBOLS (${env.MARKET_SYMBOLS.length}) and MARKET_ADDRESSES (${env.MARKET_ADDRESSES.length}) must match in length and order`,
+  )
+}
 
 const AccountInfo = z.object({
   result: z.object({
@@ -71,11 +89,14 @@ function base58(bytes: Uint8Array): string {
 const sql = postgres(env.DATABASE_URL_MIGRATE, { max: 1 })
 const db = drizzle(sql)
 
-for (const address of env.MARKET_ADDRESSES) {
+for (const [i, address] of env.MARKET_ADDRESSES.entries()) {
+  const symbols = env.MARKET_SYMBOLS[i]
+  if (!symbols) throw new Error(`no symbols for ${address}`)
   const data = await fetchAccount(address)
   const h = decodeMarketHeader(data)
   const base = base58(h.baseMint)
   const quote = base58(h.quoteMint)
+  const label = `${symbols.base}/${symbols.quote}` // the UI appends the venue
   await db
     .insert(markets)
     .values({
@@ -85,12 +106,17 @@ for (const address of env.MARKET_ADDRESSES) {
       quoteMint: quote,
       baseDecimals: h.baseDecimals,
       quoteDecimals: h.quoteDecimals,
-      label: `${base.slice(0, 4)}…/${quote.slice(0, 4)}… · Manifest`,
+      baseSymbol: symbols.base,
+      quoteSymbol: symbols.quote,
+      label,
       active: true,
     })
-    .onConflictDoNothing({ target: markets.address })
+    .onConflictDoUpdate({
+      target: markets.address,
+      set: { baseSymbol: symbols.base, quoteSymbol: symbols.quote, label },
+    })
   console.log(
-    `market ${address} ${base.slice(0, 8)}/${quote.slice(0, 8)} ${h.baseDecimals}/${h.quoteDecimals}`,
+    `market ${address} ${label} (${base.slice(0, 8)}/${quote.slice(0, 8)}) ${h.baseDecimals}/${h.quoteDecimals}`,
   )
 }
 
