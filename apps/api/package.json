@@ -9,7 +9,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "dev": "node --watch src/index.ts",
+    "dev": "node --env-file=../../.env --watch src/index.ts",
     "dev:memory": "node src/dev-memory.ts",
     "start": "node src/index.ts",
     "test": "vitest run",

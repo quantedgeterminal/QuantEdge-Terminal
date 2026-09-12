@@ -50,6 +50,19 @@ describe('BookFeed', () => {
     expect(beat?.ageMs).toBe(1200)
   })
 
+  it('SC-005: heartbeat leads by the polling period so the gap never exceeds a second', async () => {
+    const repo = repoWith([T0])
+    let now = T0 + 100
+    const feed = new BookFeed(repo, { market: MARKET, profile: null, now: () => now })
+    expect(await feed.next(1000, 500)).not.toBeNull()
+
+    now = T0 + 500 // 400 elapsed: the next poll would be at 900 — too early
+    expect(await feed.next(1000, 500)).toBeNull()
+
+    now = T0 + 700 // 600 elapsed: the next poll at 1100 is too late, frame now
+    expect(await feed.next(1000, 500)?.then((f) => f?.ageMs)).toBe(700)
+  })
+
   it('FR-020: without new events the age grows and the book turns stale past the threshold', async () => {
     const repo = repoWith([T0])
     let now = T0

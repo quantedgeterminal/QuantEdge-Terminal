@@ -186,7 +186,7 @@ export function createApp(
       return streamSSE(c, async (stream) => {
         let seq = 0
         while (!stream.aborted) {
-          const frame = await feed.next(heartbeatMs)
+          const frame = await feed.next(heartbeatMs, pollMs)
           if (frame)
             await stream.writeSSE({ event: 'book', id: String(seq++), data: JSON.stringify(frame) })
           await stream.sleep(pollMs)

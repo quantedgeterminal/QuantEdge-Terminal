@@ -93,13 +93,15 @@ export class BookFeed {
     this.opts = opts
   }
 
-  async next(heartbeatMs: number): Promise<StreamFrame | null> {
+  async next(heartbeatMs: number, pollMs = 0): Promise<StreamFrame | null> {
     const offset = Math.max(0, this.opts.profile?.offsetMs ?? 0)
     const nowMs = this.opts.now()
     const row = await this.repo.latestBook(this.opts.market.id, nowMs - offset)
     if (!row) return null
     const changed = row.tMs !== this.lastT
-    const due = this.lastSentAt === null || nowMs - this.lastSentAt >= heartbeatMs
+    // A frame goes out as soon as the heartbeat would expire before the next poll: otherwise
+    // with a 500 ms poll plus a DB query the gap between frames grew to ~1.15 s (SC-005).
+    const due = this.lastSentAt === null || nowMs - this.lastSentAt + pollMs >= heartbeatMs
     if (!changed && !due) return null
     this.lastT = row.tMs
     this.lastSentAt = nowMs

@@ -31,12 +31,18 @@ function toLadder(r: LevelResult, decimals: number, quote: string): LadderLevel 
   }
 }
 
+/** Unfilled share with tenths: 128 of 23 896 is 0.5 %, not "0 %". The integer `unfilledPct` stays the engine's threshold. */
+function unfilledPctText(r: LevelResult): string {
+  if (r.orders === 0) return '0.0'
+  return (Math.round((r.unfilled * 1000) / r.orders) / 10).toFixed(1)
+}
+
 function cells(r: LevelResult, decimals: number, quote: string): string[] {
   return [
     `${r.latencyMs} ms`,
     `${formatSigned(r.pnl, decimals)} ${quote}`,
     formatCount(r.trades),
-    `${r.unfilledPct}% (${formatCount(r.unfilled)} of ${formatCount(r.orders)})`,
+    `${unfilledPctText(r)}% (${formatCount(r.unfilled)} of ${formatCount(r.orders)})`,
     r.avgSlippageBp === null ? '—' : `${r.avgSlippageBp.toFixed(2)} bp`,
     `${formatAtoms(r.maxDrawdown, decimals)} ${quote}`,
   ]

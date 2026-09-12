@@ -13,6 +13,8 @@ const LAG_TOOLTIP =
   'Measured between our two real channels only: for each book update, when this channel received it minus when the earliest real channel received it. Not latency from the chain event, which cannot be measured at this resolution. Not a measurement of any third-party feed.'
 
 interface Row {
+  /** The raw level price is the React key: after rounding to `digits` two prices may coincide. */
+  key: string
   price: string
   size: string
   /** For depth bar geometry only. */
@@ -26,6 +28,7 @@ function rows(levels: Frame['bids'], market: MarketMeta, digits: number): Row[] 
   return levels.map((l) => {
     acc += Number(l.size)
     return {
+      key: l.price,
       price: formatPrice(l.price, market.baseDecimals, market.quoteDecimals, digits),
       size: formatSize(l.size, market.baseDecimals, 4),
       cumulative: acc,
@@ -173,7 +176,7 @@ function Book({ frame, market }: { frame: Frame; market: MarketMeta }) {
   return (
     <>
       {[...d.asks].reverse().map((r) => (
-        <BookRow key={r.price} row={r} max={d.maxAsk} side="ask" stale={stale} />
+        <BookRow key={r.key} row={r} max={d.maxAsk} side="ask" stale={stale} />
       ))}
       <div className="my-[2px] flex items-baseline justify-between gap-4 border-y border-[hsl(var(--qe-rule))] py-[6px]">
         {stale ? (
@@ -192,7 +195,7 @@ function Book({ frame, market }: { frame: Frame; market: MarketMeta }) {
         )}
       </div>
       {d.bids.map((r) => (
-        <BookRow key={r.price} row={r} max={d.maxBid} side="bid" stale={stale} />
+        <BookRow key={r.key} row={r} max={d.maxBid} side="bid" stale={stale} />
       ))}
       <p className="qe-mono mt-3 text-[11px] text-[hsl(var(--qe-dim))]">
         Update {frame.t.replace('T', ' ').slice(0, 19)} UTC · {frame.asks.length} asks ·{' '}
