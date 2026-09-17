@@ -12,4 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - run: curl -sSf --max-time 120 "${{ vars.VITE_API_URL }}/health" | cut -c1-60
+      # Fails loudly: a ping that lands on the wrong host would keep nothing awake.
+      - run: |
+          set -o pipefail
+          curl -sSf --max-time 120 "${{ vars.VITE_API_URL }}/health" | cut -c1-60

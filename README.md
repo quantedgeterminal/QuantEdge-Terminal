@@ -93,7 +93,8 @@ project site; the database stays on Supabase.
   the `sync: false` secrets in the dashboard. `WEB_ORIGIN` is the Pages origin
   (`https://<owner>.github.io`), which turns on CORS for exactly that origin.
 - `.github/workflows/pages.yml` builds `apps/web` with `BASE_PATH=/<repo>/` and
-  `VITE_API_URL` (repository variable → the Render URL) and deploys it; a
+  `VITE_API_URL` (repository variable → the service URL exactly as Render shows
+  it, suffix included, e.g. `https://quantedge-api-xxxx.onrender.com`) and deploys it; a
   `404.html` copy of the shell keeps deep links working.
 - `.github/workflows/keepalive.yml` hits `/health` every 5 minutes: a free
   service sleeps after 15 minutes of silence, and a sleeping collector is a gap
