@@ -82,6 +82,28 @@ to keep everything.
 `pnpm gate` runs lint, typecheck and every test suite; it is the bar for each
 commit.
 
+## Deploying for free
+
+One Render Free web service runs the API **with the collector inside it**
+(`RUN_COLLECTOR=true` — a free tier has no background worker, and the coverage
+tracker must live where the writes happen); the web app is a GitHub Pages
+project site; the database stays on Supabase.
+
+- `render.yaml` is a Blueprint: Render → New → Blueprint → this repo, then fill
+  the `sync: false` secrets in the dashboard. `WEB_ORIGIN` is the Pages origin
+  (`https://<owner>.github.io`), which turns on CORS for exactly that origin.
+- `.github/workflows/pages.yml` builds `apps/web` with `BASE_PATH=/<repo>/` and
+  `VITE_API_URL` (repository variable → the Render URL) and deploys it; a
+  `404.html` copy of the shell keeps deep links working.
+- `.github/workflows/keepalive.yml` hits `/health` every 5 minutes: a free
+  service sleeps after 15 minutes of silence, and a sleeping collector is a gap
+  in the dataset. Gaps that still happen (deploys, misses) are recorded as gaps,
+  never papered over.
+- `.github/workflows/ci.yml` runs `pnpm gate` on every push.
+
+Known limit: the run-time budget (SC-001) was measured on a laptop; a free
+instance has a fraction of a CPU, so re-measure there before relying on it.
+
 ## API in one glance
 
 | Route | Purpose |

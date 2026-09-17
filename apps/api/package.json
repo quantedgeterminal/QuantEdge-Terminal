@@ -18,11 +18,13 @@
   "dependencies": {
     "@hono/node-server": "2.1.1",
     "@hono/zod-validator": "0.9.1",
+    "@quantedge/collector": "workspace:*",
     "@quantedge/db": "workspace:*",
     "@quantedge/engine": "workspace:*",
     "@quantedge/shared": "workspace:*",
     "drizzle-orm": "0.45.2",
     "hono": "4.13.7",
+    "pino": "10.3.1",
     "zod": "4.6.2"
   },
   "devDependencies": {

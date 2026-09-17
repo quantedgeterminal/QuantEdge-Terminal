@@ -57,7 +57,7 @@ export async function checkQuota(
 }
 
 /**
- * Client IP: the first address in `X-Forwarded-For` (Railway sits behind a proxy), otherwise
+ * Client IP: the first address in `X-Forwarded-For` (the platform sits behind a proxy), otherwise
  * the one the server adapter gave; `null` when there is none (tests via `app.request`).
  */
 export function clientIpFrom(

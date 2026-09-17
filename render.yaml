@@ -1,0 +1,29 @@
+# Render Blueprint: one free web service running the API with the collector
+# inside it (RUN_COLLECTOR=true) — a background worker does not exist on the
+# free tier, and the coverage tracker must live where the writes happen.
+# Secrets are `sync: false`: entered once in the dashboard, never in git.
+services:
+  - type: web
+    name: quantedge-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: node apps/api/src/index.ts
+    healthCheckPath: /health
+    envVars:
+      - { key: NODE_VERSION, value: "22" }
+      - { key: RUN_COLLECTOR, value: "true" }
+      - { key: LOG_LEVEL, value: info }
+      - { key: BOOK_DEPTH, value: "15" }
+      - { key: RETENTION_HOURS, value: "24" }
+      - { key: WEB_ORIGIN, sync: false } # https://<owner>.github.io — scheme + host, no path
+      - { key: DATABASE_URL, sync: false } # transaction pooler, :6543
+      - { key: RPC_A_NAME, sync: false }
+      - { key: RPC_A_WS_URL, sync: false }
+      - { key: RPC_B_NAME, sync: false }
+      - { key: RPC_B_WS_URL, sync: false }
+      - { key: MARKET_ADDRESSES, sync: false }
+      - { key: MARKET_SYMBOLS, sync: false }
+      - { key: FROZEN_FROM, sync: false } # reference dataset the retention never touches
+      - { key: FROZEN_TO, sync: false }

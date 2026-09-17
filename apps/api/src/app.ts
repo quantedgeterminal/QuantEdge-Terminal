@@ -1,6 +1,7 @@
 import { ParamError, presets } from '@quantedge/engine'
 import { aggregateLatency, recentArrivals } from '@quantedge/shared'
 import { type Context, Hono } from 'hono'
+import { cors } from 'hono/cors'
 import { streamSSE } from 'hono/streaming'
 import { missingRanges } from './coverage.ts'
 import { checkQuota, clientIpFrom, DEFAULT_QUOTA, type QuotaLimits } from './quota.ts'
@@ -62,6 +63,8 @@ export interface AppOptions {
   readonly quota?: QuotaLimits
   /** Connection IP from the server adapter; without it only `X-Forwarded-For`. */
   readonly connectionIp?: (c: Context) => string | null
+  /** Browser origins allowed cross-site (web app on another host). Unset or empty — no CORS headers at all. */
+  readonly webOrigins?: readonly string[]
 }
 
 /** Ceiling on a run's period length (PLAN "period bounded from above"): 24 h — client decision 2026-09-11. */
@@ -77,6 +80,17 @@ export function createApp(
   const heartbeatMs = options.streamHeartbeatMs ?? 1000
   const quota = options.quota ?? DEFAULT_QUOTA
   const app = new Hono()
+
+  if (options.webOrigins !== undefined && options.webOrigins.length > 0) {
+    app.use(
+      '*',
+      cors({
+        origin: [...options.webOrigins],
+        allowHeaders: ['Content-Type', 'X-Session-Key'],
+        exposeHeaders: ['Retry-After'],
+      }),
+    )
+  }
 
   app.get('/health', (c) => c.json({ ok: true }))
 
