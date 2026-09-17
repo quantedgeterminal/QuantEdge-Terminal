@@ -51,8 +51,8 @@ apps/web            React 19 + Vite 7: run, result, terminal, compare screens
 ```
 
 Stack: pnpm workspaces · TypeScript 5.9 strict · Biome 2 · Vitest 3 · Hono 4 ·
-Drizzle · React 19 · Zod 4 · `@cks-systems/manifest-sdk`. Versions are pinned
-exactly.
+Drizzle · React 19 · Tailwind 4 · Zod 4 · `@cks-systems/manifest-sdk`. Versions
+are pinned exactly.
 
 ## Running it
 
@@ -61,7 +61,7 @@ pnpm install
 cp .env.example .env            # two Postgres URLs, two INDEPENDENT RPC providers, markets
 pnpm --filter @quantedge/db migrate
 pnpm --filter @quantedge/collector seed   # markets (symbols from MARKET_SYMBOLS) and the two channels
-pnpm --filter @quantedge/collector dev   # starts recording; 40 market-hours take 40 hours
+pnpm --filter @quantedge/collector dev   # starts recording; market-hours add up across markets — three markets reach 40 in about 13 hours
 pnpm --filter @quantedge/api dev
 pnpm --filter @quantedge/web dev
 ```
@@ -86,10 +86,11 @@ commit.
 
 | Route | Purpose |
 |---|---|
+| `GET /health` | liveness |
 | `POST /session` | anonymous session key; sent back as `X-Session-Key` |
 | `GET /markets`, `GET /markets/:id/coverage` | markets and gap-free recorded periods |
 | `GET /presets` | the three built-in presets with their parameter specs |
-| `POST /runs`, `GET /runs/:id` | start a run (synchronous), read its results |
+| `POST /runs`, `GET /runs/:id` | start a run (synchronous), read its results; `levelsMs` overrides the five default delays (1–10 levels, ≤ 60 s) |
 | `GET/POST /strategies`, `DELETE /strategies/:id` | saved parameter sets on the session key |
 | `GET /markets/:id/latency` | p50/p95 lag per channel over a 60 s window, real channels only |
 | `GET /markets/:id/arrivals` | last updates with per-channel arrival lag |
