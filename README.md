@@ -96,9 +96,11 @@ project site; the database stays on Supabase.
   `VITE_API_URL` (repository variable → the service URL exactly as Render shows
   it, suffix included, e.g. `https://quantedge-api-xxxx.onrender.com`) and deploys it; a
   `404.html` copy of the shell keeps deep links working.
-- `.github/workflows/keepalive.yml` hits `/health` every 5 minutes: a free
+- `.github/workflows/keepalive.yml` and `keepalive-b.yml` hit `/health`: a free
   service sleeps after 15 minutes of silence, and a sleeping collector is a gap
-  in the dataset. Gaps that still happen (deploys, misses) are recorded as gaps,
+  in the dataset. GitHub runs a `*/5` schedule every 12-20 minutes in practice,
+  so there are two schedules offset by 2 minutes and each run pings three times
+  over 8 minutes. Gaps that still happen (deploys, misses) are recorded as gaps,
   never papered over.
 - `.github/workflows/ci.yml` runs `pnpm gate` on every push.
 

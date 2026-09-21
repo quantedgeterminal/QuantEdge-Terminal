@@ -1,5 +1,9 @@
 # Render Free sleeps after 15 minutes without traffic; the collector inside the
-# API must not. */5 rather than */10 — GitHub's schedule runs minutes late.
+# API must not. GitHub runs a */5 schedule every 12-20 minutes in practice, so
+# one ping per run left the service asleep about half the time. Two measures:
+# each run pings three times over ~8 minutes, and keepalive-b.yml runs the same
+# job on a schedule offset by 2 minutes. Silence then exceeds 15 minutes only
+# when both schedules slip by more than 23 minutes.
 # GitHub disables schedules after 60 days without commits: re-enable in Actions.
 name: keepalive
 on:
@@ -10,9 +14,12 @@ permissions: {}
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 12
     steps:
       # Fails loudly: a ping that lands on the wrong host would keep nothing awake.
       - run: |
           set -o pipefail
-          curl -sSf --max-time 120 "${{ vars.VITE_API_URL }}/health" | cut -c1-60
+          for i in 1 2 3; do
+            if [ "$i" -gt 1 ]; then sleep 240; fi
+            curl -sSf --max-time 120 "${{ vars.VITE_API_URL }}/health" | cut -c1-60
+          done
