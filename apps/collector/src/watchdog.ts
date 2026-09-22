@@ -8,14 +8,20 @@
  * provider's quota (`max usage reached`), which resubscribing cannot fix — hence the
  * backoff: keep trying, cheaply, until the channel is allowed back.
  *
- * Slots are the pulse: they arrive every ≈400 ms regardless of market activity, so
- * silence on `watchSlots` means a dead channel, not a quiet market.
+ * Slots are the natural pulse: they arrive every ≈400 ms regardless of market activity, so
+ * silence on `watchSlots` means a dead channel, not a quiet market. They are also 64 % of a
+ * channel's message volume, so a metered channel trades them for market events as its pulse
+ * and a threshold long enough that a quiet market does not look like a failure (T058).
  */
 
 /** What the watchdog knows about one channel. All times are epoch µs. */
 export interface PathHealth {
-  /** Last slot seen on this channel; `null` — not a single one since the subscription started. */
-  readonly lastSlotAtUs: bigint | null
+  /**
+   * Last sign of life on this channel; `null` — none since the subscription started. Usually a
+   * slot, but a channel whose provider meters every message may run without the slot
+   * subscription and pulse on market events instead (T058) — with a threshold to match.
+   */
+  readonly lastPulseAtUs: bigint | null
   /** When the current subscription was established — the reference point until the first slot. */
   readonly startedAtUs: bigint
   /** Consecutive resubscribe attempts that have not brought the channel back. */
@@ -51,10 +57,10 @@ export function backoffUs(failures: number, o: WatchdogOptions): bigint {
 /**
  * Is it time to resubscribe this channel? True when it has been silent past the
  * threshold and the backoff from the previous attempt has elapsed. A channel that
- * has never delivered a slot counts its silence from the moment it subscribed.
+ * has shown no sign of life at all counts its silence from the moment it subscribed.
  */
 export function shouldResubscribe(h: PathHealth, nowUs: bigint, o: WatchdogOptions): boolean {
-  const since = h.lastSlotAtUs ?? h.startedAtUs
+  const since = h.lastPulseAtUs ?? h.startedAtUs
   if (nowUs - since <= o.silenceUs) return false
   if (h.lastAttemptAtUs === null) return true
   return nowUs - h.lastAttemptAtUs >= backoffUs(h.failures, o)

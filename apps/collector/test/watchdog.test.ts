@@ -6,7 +6,7 @@ const opts = { silenceUs: 120n * SEC, baseBackoffUs: 30n * SEC, maxBackoffUs: 90
 
 function health(over: Partial<PathHealth> = {}): PathHealth {
   return {
-    lastSlotAtUs: 1000n * SEC,
+    lastPulseAtUs: 1000n * SEC,
     startedAtUs: 900n * SEC,
     failures: 0,
     lastAttemptAtUs: null,
@@ -38,8 +38,8 @@ describe('shouldResubscribe', () => {
     expect(shouldResubscribe(health(), 1121n * SEC, opts)).toBe(true)
   })
 
-  it('a channel that never delivered a slot counts silence from the subscription', () => {
-    const h = health({ lastSlotAtUs: null })
+  it('a channel with no sign of life counts silence from the subscription', () => {
+    const h = health({ lastPulseAtUs: null })
     expect(shouldResubscribe(h, 1021n * SEC, opts)).toBe(true)
     expect(shouldResubscribe(h, 1020n * SEC, opts)).toBe(false)
   })
@@ -57,7 +57,7 @@ describe('shouldResubscribe', () => {
   })
 
   it('a channel that came back is live again regardless of past failures', () => {
-    const h = health({ failures: 5, lastAttemptAtUs: 1200n * SEC, lastSlotAtUs: 1250n * SEC })
+    const h = health({ failures: 5, lastAttemptAtUs: 1200n * SEC, lastPulseAtUs: 1250n * SEC })
     expect(shouldResubscribe(h, 1300n * SEC, opts)).toBe(false)
   })
 })

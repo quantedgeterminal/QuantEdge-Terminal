@@ -17,8 +17,10 @@ interface PathRuntime extends PathHealth {
   readonly pathId: number
   /** The markets this channel is subscribed to — not always all of them (T056). */
   readonly markets: readonly (readonly [string, number])[]
+  /** Does this channel hold the slot subscription, or pulse on market events instead (T058)? */
+  readonly slotPulse: boolean
   subs: Unsubscribe[]
-  lastSlotAtUs: bigint | null
+  lastPulseAtUs: bigint | null
   startedAtUs: bigint
   failures: number
   lastAttemptAtUs: bigint | null
@@ -76,55 +78,69 @@ export async function startCollector(
     path,
     pathId: ids.paths.get(path.name) as number,
     markets: i === 0 ? measuredMarkets : allMarkets,
+    slotPulse: i === 0 ? env.CHANNEL_A_SLOTS : true,
     subs: [],
-    lastSlotAtUs: null,
+    lastPulseAtUs: null,
     startedAtUs: 0n,
     failures: 0,
     lastAttemptAtUs: null,
   }))
 
+  /**
+   * A sign of life on this channel (T055): it is alive, and so is coverage of the markets it
+   * carries. Only those markets — a live channel says nothing about coverage of a market it is
+   * not subscribed to (T056).
+   */
+  function pulse(rt: PathRuntime, at: bigint): void {
+    rt.lastPulseAtUs = at
+    rt.failures = 0
+    for (const [, marketId] of rt.markets) {
+      trackers
+        .get(marketId)
+        ?.pathAlive(rt.pathId, at)
+        .catch((e) => log.error({ err: e, path: rt.path.name }, 'coverage failed to open'))
+    }
+  }
+
   async function subscribeAll(rt: PathRuntime): Promise<void> {
     rt.startedAtUs = nowUs()
-    rt.lastSlotAtUs = null
+    rt.lastPulseAtUs = null
     rt.subs = []
-    rt.subs.push(
-      await rt.path.watchSlots((slot) => {
-        const at = nowUs()
-        // The channel's pulse (T055): a slot is proof this channel is alive, not just the market.
-        rt.lastSlotAtUs = at
-        rt.failures = 0
-        // Only the markets this channel actually carries: a live channel says nothing about
-        // coverage of a market it is not subscribed to (T056).
-        for (const [, marketId] of rt.markets) {
-          trackers
-            .get(marketId)
-            ?.pathAlive(rt.pathId, at)
-            .catch((e) => log.error({ err: e, slot }, 'coverage failed to open'))
-        }
-      }),
-    )
+    if (rt.slotPulse) {
+      rt.subs.push(await rt.path.watchSlots(() => pulse(rt, nowUs())))
+    }
     for (const [address, marketId] of rt.markets) {
       rt.subs.push(
         await rt.path.subscribe(address, (u) => {
+          // Without slots, market events are all this channel has to prove it is alive (T058).
+          if (!rt.slotPulse) pulse(rt, nowUs())
           ingestor
             .handle(marketId, rt.pathId, u)
             .catch((e) => log.error({ err: e, marketId, path: rt.path.name }, 'event write failed'))
         }),
       )
-      log.info({ path: rt.path.name, kind: rt.path.kind, address, marketId }, 'subscribed')
+      log.info(
+        { path: rt.path.name, kind: rt.path.kind, address, marketId, slotPulse: rt.slotPulse },
+        'subscribed',
+      )
     }
   }
 
   for (const rt of runtimes) await subscribeAll(rt)
 
-  const watchdog = {
-    silenceUs: BigInt(env.WATCHDOG_SILENCE_SEC) * 1_000_000n,
+  const backoff = {
     baseBackoffUs: BigInt(env.WATCHDOG_BACKOFF_SEC) * 1_000_000n,
     maxBackoffUs: BigInt(env.WATCHDOG_MAX_BACKOFF_SEC) * 1_000_000n,
   }
+  /** Slots prove liveness every ≈400 ms; market events do not, so that channel gets far longer. */
+  const watchdogFor = (rt: PathRuntime) => ({
+    ...backoff,
+    silenceUs:
+      BigInt(rt.slotPulse ? env.WATCHDOG_SILENCE_SEC : env.WATCHDOG_QUIET_SILENCE_SEC) * 1_000_000n,
+  })
 
   async function resubscribe(rt: PathRuntime): Promise<void> {
-    const silentForSec = Number((nowUs() - (rt.lastSlotAtUs ?? rt.startedAtUs)) / 1_000_000n)
+    const silentForSec = Number((nowUs() - (rt.lastPulseAtUs ?? rt.startedAtUs)) / 1_000_000n)
     rt.lastAttemptAtUs = nowUs()
     rt.failures += 1
     log.warn(
@@ -154,7 +170,7 @@ export async function startCollector(
     void (async () => {
       try {
         for (const rt of runtimes) {
-          if (shouldResubscribe(rt, nowUs(), watchdog)) await resubscribe(rt)
+          if (shouldResubscribe(rt, nowUs(), watchdogFor(rt))) await resubscribe(rt)
         }
       } finally {
         checking = false
@@ -205,7 +221,11 @@ export async function startCollector(
   log.info(
     {
       markets: [...ids.markets.keys()],
-      paths: pathDefs.map((p) => p.name),
+      paths: runtimes.map((rt) => ({
+        name: rt.path.name,
+        markets: rt.markets.length,
+        slotPulse: rt.slotPulse,
+      })),
       depth: env.BOOK_DEPTH,
       retentionHours: env.RETENTION_HOURS ?? null,
       frozen: env.FROZEN_FROM === undefined ? null : [env.FROZEN_FROM, env.FROZEN_TO],

@@ -27,6 +27,20 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...ok, LATENCY_MARKETS: '3' })).toThrow(/3 is more than the 2 markets/)
   })
 
+  it('CHANNEL_A_SLOTS defaults to true — the slot pulse stays unless asked otherwise', () => {
+    expect(loadEnv(ok).CHANNEL_A_SLOTS).toBe(true)
+    expect(loadEnv({ ...ok, CHANNEL_A_SLOTS: 'false' }).CHANNEL_A_SLOTS).toBe(false)
+  })
+
+  it('CHANNEL_A_SLOTS takes true/false only — an unset-looking value is not silently false', () => {
+    expect(() => loadEnv({ ...ok, CHANNEL_A_SLOTS: '0' })).toThrow(/CHANNEL_A_SLOTS/)
+  })
+
+  it('the event-pulse threshold is far longer than the slot one', () => {
+    const env = loadEnv(ok)
+    expect(env.WATCHDOG_QUIET_SILENCE_SEC).toBeGreaterThan(env.WATCHDOG_SILENCE_SEC)
+  })
+
   it('two identical providers — refused: that is not two channels', () => {
     expect(() => loadEnv({ ...ok, RPC_B_WS_URL: ok.RPC_A_WS_URL })).toThrow(/independent/)
   })

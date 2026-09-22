@@ -26,6 +26,15 @@ Three screens:
   equals the profile typed into it; the product does not present that as data,
   in the UI or in the API. Every payload that carries channel data carries the
   channel's `kind` (`real` | `emulated`); an audit test enforces this.
+- **A channel that stops delivering says so.** The compare screen reports each
+  real channel's own state, because "no updates reached both channels" reads the
+  same whether the market is quiet or a channel is down. A silent channel is also
+  resubscribed on its own — a WS socket can stay open while delivering nothing.
+- **Latency need not be measured on every market.** Providers meter messages, so
+  a deployment may carry the second channel on fewer markets than the first
+  (`LATENCY_MARKETS`) and drop its slot subscription (`CHANNEL_A_SLOTS`). Markets
+  outside that set still record the book — they simply have one channel, and the
+  compare screen shows exactly that rather than implying a measurement.
 - **A run over incomplete data does not start.** The API names the missing
   ranges instead of silently computing across gaps.
 - **Runs are byte-for-byte reproducible.** The engine has no I/O, no clock, no

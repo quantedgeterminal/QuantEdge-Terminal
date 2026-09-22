@@ -32,6 +32,21 @@ export const CollectorEnv = z.object({
    */
   LATENCY_MARKETS: z.coerce.number().int().min(1).optional(),
   /**
+   * Does channel A keep the slot subscription (T058)? Measured on a live channel: slots are
+   * ~5 760 messages/h against ~1 080/h per market — 64 % of the volume, and a metered provider
+   * charges for every one of them. `false` drops them on A, and its pulse becomes market events.
+   */
+  CHANNEL_A_SLOTS: z
+    .enum(['true', 'false'])
+    .prefault('true')
+    .transform((v) => v === 'true'),
+  /**
+   * Silence threshold for a channel that pulses on market events rather than slots (T058).
+   * Far longer than the slot-based one: a market can genuinely be quiet for minutes, and a
+   * false resubscribe costs a reconnect at a provider that is already rationing us.
+   */
+  WATCHDOG_QUIET_SILENCE_SEC: z.coerce.number().int().min(1).prefault(900),
+  /**
    * Watchdog (T055): seconds without a slot after which a channel is resubscribed.
    * Well above `LIVENESS_TIMEOUT_SEC` on purpose — a gap in coverage is cheap and
    * self-healing, while dropping a subscription costs a reconnect at the provider.
