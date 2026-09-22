@@ -17,6 +17,11 @@ services:
       - { key: LOG_LEVEL, value: info }
       - { key: BOOK_DEPTH, value: "15" }
       - { key: RETENTION_HOURS, value: "24" }
+      # Channel A is rationed by its provider: slots alone are 64 % of a channel's messages,
+      # and the 1M-credit cycle ran out in ~9 days with three markets plus slots. One market
+      # without them projects to ~0.78M/month. Channel B carries every market and keeps slots.
+      - { key: LATENCY_MARKETS, value: "1" }
+      - { key: CHANNEL_A_SLOTS, value: "false" }
       - { key: WEB_ORIGIN, sync: false } # https://<owner>.github.io — scheme + host, no path
       - { key: DATABASE_URL, sync: false } # transaction pooler, :6543
       - { key: RPC_A_NAME, sync: false }
