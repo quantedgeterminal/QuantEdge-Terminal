@@ -95,6 +95,27 @@ describe('aggregateLatency (FR-003, FR-003c)', () => {
   })
 })
 
+describe('aggregateLatency — per-channel state (T057)', () => {
+  it('a channel with no arrivals in the window is null, not zero: it is not delivering', () => {
+    const rows = [...event(1, { 2: 100 }), ...event(2, { 2: 200 })]
+    const out = aggregateLatency([A, B], rows, 60)
+    expect(out.paths.find((p) => p.pathId === 1)?.lastEventAtMs).toBeNull()
+    expect(out.paths.find((p) => p.pathId === 2)?.lastEventAtMs).toBe(200)
+  })
+
+  it('the latest arrival wins regardless of row order', () => {
+    const rows = [...event(2, { 1: 500 }), ...event(1, { 1: 100 })]
+    expect(aggregateLatency([A], rows, 60).paths[0]?.lastEventAtMs).toBe(500)
+  })
+
+  it('an emulated channel reports its state too — the mark rides along, not instead', () => {
+    const out = aggregateLatency([A, E], event(1, { 3: 700 }), 60)
+    const emu = out.paths.find((p) => p.pathId === 3)
+    expect(emu?.kind).toBe('emulated')
+    expect(emu?.lastEventAtMs).toBe(700)
+  })
+})
+
 describe('recentArrivals (FR-021, FR-003c)', () => {
   it('events with ≥ 2 real channels, newest first, lag from the earliest real one; emulation without lag', () => {
     const rows = [

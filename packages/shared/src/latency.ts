@@ -26,6 +26,13 @@ export interface PathLatency {
   readonly sampleCount: number
   /** Share of events where this channel was not first, in percent (0…100). */
   readonly laterPct: number | null
+  /**
+   * Last event over this channel inside the window, epoch ms; `null` — none at all (T057).
+   * That null is the useful signal: a real channel with no arrivals in the window is not
+   * delivering, which is why the screen is empty. How long it has been down is a question for
+   * the logs — answering it here would mean scanning the whole arrivals table on every poll.
+   */
+  readonly lastEventAtMs: number | null
 }
 
 export interface LatencySummary {
@@ -60,17 +67,31 @@ export function aggregateLatency(
   windowSec: number,
 ): LatencySummary {
   const kindOf = new Map(paths.map((p) => [p.id, p.kind]))
+  const lastEventAtMs = lastSeenPerPath(rows)
   const byEvent = groupByEvent(rows, kindOf)
   const { lagsUs, later, sharedEvents } = lagsFromEarliestReal(byEvent, kindOf)
 
   const out = [...paths]
     .sort((a, b) => a.id - b.id)
-    .map((p) => summarize(p, lagsUs.get(p.id) ?? [], later.get(p.id) ?? 0))
+    .map((p) =>
+      summarize(p, lagsUs.get(p.id) ?? [], later.get(p.id) ?? 0, lastEventAtMs.get(p.id) ?? null),
+    )
 
   // `measurable` is about channels (FR-003c), not about data in the window: two real channels with
   // no shared events is "no data yet", not "nothing to compare".
   const realCount = paths.filter((p) => p.kind === 'real').length
   return { windowSec, paths: out, measurable: realCount >= 2, sharedEvents }
+}
+
+/** Latest arrival per channel among the window's rows, epoch ms. */
+function lastSeenPerPath(rows: readonly ArrivalRow[]): Map<number, number> {
+  const out = new Map<number, number>()
+  for (const r of rows) {
+    const ms = Number(r.receivedAtUs / 1000n)
+    const seen = out.get(r.pathId)
+    if (seen === undefined || ms > seen) out.set(r.pathId, ms)
+  }
+  return out
 }
 
 function groupByEvent(
@@ -114,7 +135,12 @@ function lagsFromEarliestReal(
   return { lagsUs, later, sharedEvents }
 }
 
-function summarize(p: PathRow, lagsUnsorted: number[], laterCount: number): PathLatency {
+function summarize(
+  p: PathRow,
+  lagsUnsorted: number[],
+  laterCount: number,
+  lastEventAtMs: number | null,
+): PathLatency {
   const lags = [...lagsUnsorted].sort((a, b) => a - b)
   const toMs = (us: number | null) => (us === null ? null : Math.round(us / 1000))
   return {
@@ -125,6 +151,7 @@ function summarize(p: PathRow, lagsUnsorted: number[], laterCount: number): Path
     p95Ms: toMs(percentile(lags, 95)),
     sampleCount: lags.length,
     laterPct: lags.length === 0 ? null : Math.trunc((laterCount * 100) / lags.length),
+    lastEventAtMs,
   }
 }
 

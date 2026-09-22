@@ -192,15 +192,46 @@ function ProfileForm({
   )
 }
 
+/** Per-channel state under an empty lane block: which channel is delivering and which is not (T057). */
+function ChannelState({
+  paths,
+  summary,
+}: {
+  paths: readonly PathRef[]
+  summary: LatencySummary | null
+}) {
+  const real = paths.filter((p) => p.kind === 'real')
+  if (summary === null || real.length === 0) return null
+  const stateOf = new Map(summary.paths.map((p) => [p.pathId, p.lastEventAtMs]))
+  const now = Date.now()
+  return (
+    <ul className="qe-mono mt-3 space-y-1 text-[11px]">
+      {real.map((p) => {
+        const last = stateOf.get(p.pathId) ?? null
+        return (
+          <li
+            key={p.pathId}
+            className={last === null ? 'text-[hsl(var(--qe-loss))]' : 'text-[hsl(var(--qe-faint))]'}
+          >
+            {p.name} — {silenceLabel(last, now, summary.windowSec)}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 /** Lanes: a row per event, two real columns and, given a profile, a third emulated one (T047, T048). */
 function Lanes({
   arrivals,
   lanes,
   profile,
+  summary,
 }: {
   arrivals: Arrivals
   lanes: [PathRef, PathRef]
   profile: Profile | null
+  summary: LatencySummary | null
 }) {
   return (
     <section className="border-t border-[hsl(var(--qe-rule))] pt-3">
@@ -224,9 +255,15 @@ function Lanes({
         )}
       </div>
       {arrivals.events.length === 0 ? (
-        <p className="qe-mono py-6 text-[12px] text-[hsl(var(--qe-dim))]">
-          No update reached both real channels inside the last {arrivals.windowSec} s.
-        </p>
+        <div className="py-6">
+          <p className="qe-mono text-[12px] text-[hsl(var(--qe-dim))]">
+            No update reached both real channels inside the last {arrivals.windowSec} s.
+          </p>
+          {/* Why (T057): an empty screen with two channels configured says nothing about which
+              of them stopped. The per-channel state is the difference between "quiet market"
+              and "this channel is down". */}
+          <ChannelState paths={arrivals.paths} summary={summary} />
+        </div>
       ) : (
         arrivals.events.map((e) => (
           <LaneRow key={e.eventId} event={e} lanes={lanes} profile={profile} />
@@ -242,20 +279,54 @@ function Lanes({
 }
 
 /** T049: one real channel — name the reason instead of showing a difference against emulation. */
-function NothingToCompare({ paths }: { paths: readonly PathRef[] }) {
+/**
+ * A channel's state in words (T057). `null` — nothing arrived over it inside the measurement
+ * window, which is the whole answer to "why is this screen empty": the channel is not
+ * delivering. A live channel gets the age of its last event instead.
+ */
+export function silenceLabel(
+  lastEventAtMs: number | null,
+  nowMs: number,
+  windowSec: number,
+): string {
+  if (lastEventAtMs === null) return `no events in the last ${windowSec}s — not delivering`
+  const sec = Math.max(0, Math.round((nowMs - lastEventAtMs) / 1000))
+  const at = new Date(lastEventAtMs).toISOString().slice(11, 19)
+  return `last event ${sec}s ago (${at} UTC)`
+}
+
+function NothingToCompare({
+  paths,
+  latency,
+}: {
+  paths: readonly PathRef[]
+  latency: LatencySummary | null
+}) {
+  const real = paths.filter((p) => p.kind === 'real')
+  const stateOf = new Map((latency?.paths ?? []).map((p) => [p.pathId, p.lastEventAtMs]))
+  const now = Date.now()
   return (
     <section className="border-t border-[hsl(var(--qe-rule))] pt-4">
       <p className="qe-mono text-[16px] text-[hsl(var(--qe-text))]">Nothing to compare</p>
       <p className="mt-2 max-w-[560px] text-[12px] leading-[1.5] text-[hsl(var(--qe-dim))]">
         {NOTHING_TO_COMPARE}
       </p>
-      <p className="qe-mono mt-3 text-[11px] text-[hsl(var(--qe-faint))]">
-        Real channels configured:{' '}
-        {paths
-          .filter((p) => p.kind === 'real')
-          .map((p) => p.name)
-          .join(', ') || 'none'}
-      </p>
+      {real.length === 0 ? (
+        <p className="qe-mono mt-3 text-[11px] text-[hsl(var(--qe-faint))]">
+          Real channels configured: none
+        </p>
+      ) : (
+        <ul className="qe-mono mt-3 space-y-1 text-[11px] text-[hsl(var(--qe-faint))]">
+          {real.map((p) => (
+            <li key={p.pathId}>
+              {p.name}
+              {latency === null
+                ? ''
+                : ` — ${silenceLabel(stateOf.get(p.pathId) ?? null, now, latency.windowSec)}`}
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }
@@ -349,10 +420,10 @@ export default function CompareScreen() {
             {validId ? 'Loading arrivals…' : 'Nothing to show.'}
           </p>
         ) : !measurable || lanes === null ? (
-          <NothingToCompare paths={arrivals.paths} />
+          <NothingToCompare paths={arrivals.paths} latency={summary} />
         ) : (
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)]">
-            <Lanes arrivals={arrivals} lanes={lanes} profile={profile} />
+            <Lanes arrivals={arrivals} lanes={lanes} profile={profile} summary={summary} />
 
             <div className="space-y-6">
               <Distribution events={arrivals.events} lanes={lanes} summary={summary} />

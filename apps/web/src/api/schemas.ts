@@ -14,6 +14,8 @@ export const PathLatency = z.object({
   p95Ms: z.int().nullable(),
   sampleCount: z.int(),
   laterPct: z.int().nullable(),
+  /** Last event over this channel, epoch ms; `null` — never (T057). */
+  lastEventAtMs: z.int().nullable(),
 })
 export type PathLatency = z.infer<typeof PathLatency>
 
