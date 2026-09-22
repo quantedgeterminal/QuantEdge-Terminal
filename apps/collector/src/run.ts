@@ -6,6 +6,21 @@ import { CoverageTracker } from './coverage.ts'
 import { Ingestor } from './ingest.ts'
 import { Retention } from './retention.ts'
 import { DrizzleSink, resolveIds } from './sink.ts'
+import { type PathHealth, shouldResubscribe } from './watchdog.ts'
+
+/** How long to let web3.js release the socket before subscribing again. */
+const SOCKET_RELEASE_MS = 1000
+
+/** One channel's live subscriptions plus the health the watchdog (T055) judges it by. */
+interface PathRuntime extends PathHealth {
+  readonly path: RpcWsPath
+  readonly pathId: number
+  subs: Unsubscribe[]
+  lastSlotAtUs: bigint | null
+  startedAtUs: bigint
+  failures: number
+  lastAttemptAtUs: bigint | null
+}
 
 export interface CollectorHandle {
   /** Unsubscribes, closes every open coverage segment at the last live moment, stops the timers. */
@@ -49,30 +64,89 @@ export async function startCollector(
     trackers.get(marketId)?.stored(),
   )
 
-  const subscriptions: Unsubscribe[] = []
-  for (const path of pathDefs) {
-    const pathId = ids.paths.get(path.name) as number
-    subscriptions.push(
-      await path.watchSlots((slot) => {
+  const runtimes: PathRuntime[] = pathDefs.map((path) => ({
+    path,
+    pathId: ids.paths.get(path.name) as number,
+    subs: [],
+    lastSlotAtUs: null,
+    startedAtUs: 0n,
+    failures: 0,
+    lastAttemptAtUs: null,
+  }))
+
+  async function subscribeAll(rt: PathRuntime): Promise<void> {
+    rt.startedAtUs = nowUs()
+    rt.lastSlotAtUs = null
+    rt.subs = []
+    rt.subs.push(
+      await rt.path.watchSlots((slot) => {
         const at = nowUs()
+        // The channel's pulse (T055): a slot is proof this channel is alive, not just the market.
+        rt.lastSlotAtUs = at
+        rt.failures = 0
         for (const t of trackers.values()) {
-          t.pathAlive(pathId, at).catch((e) =>
+          t.pathAlive(rt.pathId, at).catch((e) =>
             log.error({ err: e, slot }, 'coverage failed to open'),
           )
         }
       }),
     )
     for (const [address, marketId] of ids.markets) {
-      subscriptions.push(
-        await path.subscribe(address, (u) => {
+      rt.subs.push(
+        await rt.path.subscribe(address, (u) => {
           ingestor
-            .handle(marketId, pathId, u)
-            .catch((e) => log.error({ err: e, marketId, path: path.name }, 'event write failed'))
+            .handle(marketId, rt.pathId, u)
+            .catch((e) => log.error({ err: e, marketId, path: rt.path.name }, 'event write failed'))
         }),
       )
-      log.info({ path: path.name, kind: path.kind, address, marketId }, 'subscribed')
+      log.info({ path: rt.path.name, kind: rt.path.kind, address, marketId }, 'subscribed')
     }
   }
+
+  for (const rt of runtimes) await subscribeAll(rt)
+
+  const watchdog = {
+    silenceUs: BigInt(env.WATCHDOG_SILENCE_SEC) * 1_000_000n,
+    baseBackoffUs: BigInt(env.WATCHDOG_BACKOFF_SEC) * 1_000_000n,
+    maxBackoffUs: BigInt(env.WATCHDOG_MAX_BACKOFF_SEC) * 1_000_000n,
+  }
+
+  async function resubscribe(rt: PathRuntime): Promise<void> {
+    const silentForSec = Number((nowUs() - (rt.lastSlotAtUs ?? rt.startedAtUs)) / 1_000_000n)
+    rt.lastAttemptAtUs = nowUs()
+    rt.failures += 1
+    log.warn(
+      { path: rt.path.name, silentForSec, attempt: rt.failures },
+      'channel delivers nothing, resubscribing',
+    )
+    for (const unsub of rt.subs) await unsub().catch(() => {})
+    rt.subs = []
+    // web3.js closes the socket once its last subscription is gone. Without waiting for that,
+    // the new subscription reopens before the old socket is released, and a provider that caps
+    // concurrent connections answers 429 — which is how the channel got stuck on 2026-09-22.
+    await new Promise((resolve) => setTimeout(resolve, SOCKET_RELEASE_MS))
+    try {
+      await subscribeAll(rt)
+      log.info({ path: rt.path.name, attempt: rt.failures }, 'channel resubscribed')
+    } catch (e) {
+      log.error({ err: e, path: rt.path.name, attempt: rt.failures }, 'resubscribe failed')
+    }
+  }
+
+  let checking = false
+  const watchdogTimer = setInterval(() => {
+    if (checking) return
+    checking = true
+    void (async () => {
+      try {
+        for (const rt of runtimes) {
+          if (shouldResubscribe(rt, nowUs(), watchdog)) await resubscribe(rt)
+        }
+      } finally {
+        checking = false
+      }
+    })()
+  }, env.WATCHDOG_CHECK_SEC * 1000)
 
   const heartbeat = setInterval(() => {
     const at = nowUs()
@@ -128,8 +202,9 @@ export async function startCollector(
   return {
     async stop() {
       clearInterval(heartbeat)
+      clearInterval(watchdogTimer)
       if (retentionTimer !== null) clearInterval(retentionTimer)
-      for (const unsub of subscriptions) await unsub().catch(() => {})
+      for (const rt of runtimes) for (const unsub of rt.subs) await unsub().catch(() => {})
       for (const t of trackers.values()) await t.close()
       log.info('collector stopped')
     },

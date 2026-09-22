@@ -24,6 +24,17 @@ export const CollectorEnv = z.object({
   LIVENESS_TIMEOUT_SEC: z.coerce.number().int().min(1).prefault(5),
   /** How often to persist `to_ts` of the open coverage segment. */
   COVERAGE_HEARTBEAT_SEC: z.coerce.number().int().min(1).prefault(10),
+  /**
+   * Watchdog (T055): seconds without a slot after which a channel is resubscribed.
+   * Well above `LIVENESS_TIMEOUT_SEC` on purpose — a gap in coverage is cheap and
+   * self-healing, while dropping a subscription costs a reconnect at the provider.
+   */
+  WATCHDOG_SILENCE_SEC: z.coerce.number().int().min(1).prefault(120),
+  /** How often the watchdog looks at the channels. */
+  WATCHDOG_CHECK_SEC: z.coerce.number().int().min(1).prefault(30),
+  /** Wait before the first retry; doubles with each failure up to the maximum. */
+  WATCHDOG_BACKOFF_SEC: z.coerce.number().int().min(1).prefault(30),
+  WATCHDOG_MAX_BACKOFF_SEC: z.coerce.number().int().min(1).prefault(900),
   /** Retention (T054): how many hours of full data to keep; unset — never delete. */
   RETENTION_HOURS: z.coerce.number().int().min(1).optional(),
   RETENTION_INTERVAL_MIN: z.coerce.number().int().min(1).prefault(60),
