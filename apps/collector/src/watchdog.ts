@@ -4,7 +4,9 @@
  * the channel is silently gone. On 2026-09-22 one of the two real channels went quiet
  * at 05:42 UTC and stayed that way for 13 h — the book kept being recorded from the
  * other channel, so coverage looked healthy while the differential measurement
- * (FR-003), which needs both, had no samples at all.
+ * (FR-003), which needs both, had no samples at all. That outage turned out to be the
+ * provider's quota (`max usage reached`), which resubscribing cannot fix — hence the
+ * backoff: keep trying, cheaply, until the channel is allowed back.
  *
  * Slots are the pulse: they arrive every ≈400 ms regardless of market activity, so
  * silence on `watchSlots` means a dead channel, not a quiet market.

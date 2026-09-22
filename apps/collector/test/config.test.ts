@@ -19,6 +19,14 @@ describe('loadEnv', () => {
     expect(env.LIVENESS_TIMEOUT_SEC).toBe(5)
   })
 
+  it('LATENCY_MARKETS defaults to unset — channel A takes every market', () => {
+    expect(loadEnv(ok).LATENCY_MARKETS).toBeUndefined()
+  })
+
+  it('LATENCY_MARKETS beyond the configured markets — refused with both numbers', () => {
+    expect(() => loadEnv({ ...ok, LATENCY_MARKETS: '3' })).toThrow(/3 is more than the 2 markets/)
+  })
+
   it('two identical providers — refused: that is not two channels', () => {
     expect(() => loadEnv({ ...ok, RPC_B_WS_URL: ok.RPC_A_WS_URL })).toThrow(/independent/)
   })

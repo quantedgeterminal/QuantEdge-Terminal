@@ -15,6 +15,8 @@ const SOCKET_RELEASE_MS = 1000
 interface PathRuntime extends PathHealth {
   readonly path: RpcWsPath
   readonly pathId: number
+  /** The markets this channel is subscribed to — not always all of them (T056). */
+  readonly markets: readonly (readonly [string, number])[]
   subs: Unsubscribe[]
   lastSlotAtUs: bigint | null
   startedAtUs: bigint
@@ -64,9 +66,16 @@ export async function startCollector(
     trackers.get(marketId)?.stored(),
   )
 
-  const runtimes: PathRuntime[] = pathDefs.map((path) => ({
+  // T056: channel A carries only the markets latency is measured on, channel B carries all of
+  // them. The book survives on one channel; the measurement needs two, and credits are finite.
+  const allMarkets = [...ids.markets]
+  const measuredMarkets =
+    env.LATENCY_MARKETS === undefined ? allMarkets : allMarkets.slice(0, env.LATENCY_MARKETS)
+
+  const runtimes: PathRuntime[] = pathDefs.map((path, i) => ({
     path,
     pathId: ids.paths.get(path.name) as number,
+    markets: i === 0 ? measuredMarkets : allMarkets,
     subs: [],
     lastSlotAtUs: null,
     startedAtUs: 0n,
@@ -84,14 +93,17 @@ export async function startCollector(
         // The channel's pulse (T055): a slot is proof this channel is alive, not just the market.
         rt.lastSlotAtUs = at
         rt.failures = 0
-        for (const t of trackers.values()) {
-          t.pathAlive(rt.pathId, at).catch((e) =>
-            log.error({ err: e, slot }, 'coverage failed to open'),
-          )
+        // Only the markets this channel actually carries: a live channel says nothing about
+        // coverage of a market it is not subscribed to (T056).
+        for (const [, marketId] of rt.markets) {
+          trackers
+            .get(marketId)
+            ?.pathAlive(rt.pathId, at)
+            .catch((e) => log.error({ err: e, slot }, 'coverage failed to open'))
         }
       }),
     )
-    for (const [address, marketId] of ids.markets) {
+    for (const [address, marketId] of rt.markets) {
       rt.subs.push(
         await rt.path.subscribe(address, (u) => {
           ingestor
@@ -121,9 +133,11 @@ export async function startCollector(
     )
     for (const unsub of rt.subs) await unsub().catch(() => {})
     rt.subs = []
-    // web3.js closes the socket once its last subscription is gone. Without waiting for that,
-    // the new subscription reopens before the old socket is released, and a provider that caps
-    // concurrent connections answers 429 — which is how the channel got stuck on 2026-09-22.
+    // web3.js closes the socket once its last subscription is gone; without waiting for that,
+    // the new subscription reopens before the old socket is released and a provider that caps
+    // concurrent connections would refuse it. (The 2026-09-22 outage had a different cause —
+    // the provider's quota ran out, `max usage reached` — which no reconnect can fix; the
+    // backoff below is what that case needs.)
     await new Promise((resolve) => setTimeout(resolve, SOCKET_RELEASE_MS))
     try {
       await subscribeAll(rt)

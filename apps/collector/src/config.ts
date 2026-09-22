@@ -25,6 +25,13 @@ export const CollectorEnv = z.object({
   /** How often to persist `to_ts` of the open coverage segment. */
   COVERAGE_HEARTBEAT_SEC: z.coerce.number().int().min(1).prefault(10),
   /**
+   * How many of the first markets channel A also subscribes to (T056). The book needs one
+   * channel, the differential measurement needs two, and a provider's credits are finite —
+   * so channel A carries only the markets latency is measured on, and channel B carries all
+   * of them. Unset — A takes every market, as before.
+   */
+  LATENCY_MARKETS: z.coerce.number().int().min(1).optional(),
+  /**
    * Watchdog (T055): seconds without a slot after which a channel is resubscribed.
    * Well above `LIVENESS_TIMEOUT_SEC` on purpose — a gap in coverage is cheap and
    * self-healing, while dropping a subscription costs a reconnect at the provider.
@@ -55,6 +62,12 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): CollectorEnv {
   if (parsed.data.RPC_A_WS_URL === parsed.data.RPC_B_WS_URL) {
     throw new Error(
       'RPC_A and RPC_B are the same address: a differential measurement needs two independent channels',
+    )
+  }
+  const { LATENCY_MARKETS, MARKET_ADDRESSES } = parsed.data
+  if (LATENCY_MARKETS !== undefined && LATENCY_MARKETS > MARKET_ADDRESSES.length) {
+    throw new Error(
+      `LATENCY_MARKETS=${LATENCY_MARKETS} is more than the ${MARKET_ADDRESSES.length} markets configured`,
     )
   }
   const { FROZEN_FROM, FROZEN_TO } = parsed.data
