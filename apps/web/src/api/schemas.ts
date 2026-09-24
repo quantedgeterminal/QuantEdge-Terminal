@@ -98,6 +98,12 @@ export const LevelResult = z.object({
   avgSlippageBp: z.number().nullable(),
   maxDrawdown: money,
   finalPosition: money,
+  /** The next-faster level of the grid this row is measured against; `null` on the fastest. */
+  comparedWithMs: z.int().nullable(),
+  /** Steps where this level saw a different book state than that one; `null` — not measured. */
+  shiftedSteps: z.int().nullable(),
+  /** The same as a share of the run's steps. `0` — the data cannot separate the two levels. */
+  shiftedPct: z.number().nullable(),
 })
 export type LevelResult = z.infer<typeof LevelResult>
 
@@ -108,6 +114,13 @@ export const Cost = z.object({
   excludedMs: z.array(z.int()),
 })
 export type Cost = z.infer<typeof Cost>
+
+/** The grain of the period the run walked (FR-013a) — what the grid above is allowed to claim. */
+export const Resolution = z.object({
+  steps: z.int(),
+  medianGapMs: z.int().nullable(),
+})
+export type Resolution = z.infer<typeof Resolution>
 
 export const Run = z.object({
   id: z.uuid(),
@@ -128,6 +141,7 @@ export const Run = z.object({
   levelsMs: z.array(z.int()),
   results: z.array(LevelResult),
   cost: Cost.nullable(),
+  resolution: Resolution.nullable(),
   createdAt: z.iso.datetime(),
   finishedAt: z.iso.datetime().nullable(),
 })

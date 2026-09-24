@@ -7,10 +7,19 @@ import { Shell } from '../components/Shell.tsx'
 import { formatAtoms, formatCount, formatDuration, formatRange, formatSigned } from '../money.ts'
 import { paramsLine } from '../params.ts'
 
-const COLUMNS = ['Delay', 'P&L', 'Trades', 'Unfilled', 'Avg slippage', 'Max drawdown'] as const
+const BASE_COLUMNS = ['Delay', 'P&L', 'Trades', 'Unfilled', 'Avg slippage', 'Max drawdown'] as const
+const VIEW_COLUMN = 'View moved'
+
+/** The last column only exists for runs that measured their own resolution (FR-013a). */
+function columnsFor(run: Run): string[] {
+  return run.resolution === null ? [...BASE_COLUMNS] : [...BASE_COLUMNS, VIEW_COLUMN]
+}
 
 const FOOTNOTE =
   'Same data, same parameters at every level. The only thing that differs between rows is when the strategy saw the book. Slippage is signed against the price the strategy saw; the limit turns worse prices into unfilled orders, so read slippage together with the unfilled share.'
+
+const VIEW_FOOTNOTE =
+  '"View moved" is the share of steps on which the level looked at a different book state than the row above it. "same view" means it never did: that row repeats the one above because the data has no finer grain, not because the delay between them is free.'
 
 /** A number for bar geometry only; no digit of it is rendered. */
 function geometry(atoms: string, decimals: number): number {
@@ -32,8 +41,17 @@ function unfilledPctText(r: LevelResult): string {
   return (Math.round((r.unfilled * 1000) / r.orders) / 10).toFixed(1)
 }
 
-function cells(r: LevelResult, decimals: number, quote: string): string[] {
-  return [
+/**
+ * How much of the run this level actually spent looking somewhere else than its faster neighbour.
+ * `—` on the fastest level of the grid, which has nothing above it to differ from.
+ */
+export function viewMovedText(r: LevelResult): string {
+  if (r.comparedWithMs === null || r.shiftedPct === null) return '—'
+  return r.shiftedPct === 0 ? 'same view' : `${r.shiftedPct.toFixed(2)}%`
+}
+
+function cells(r: LevelResult, decimals: number, quote: string, withView: boolean): string[] {
+  const base = [
     `${r.latencyMs} ms`,
     `${formatSigned(r.pnl, decimals)} ${quote}`,
     formatCount(r.trades),
@@ -41,17 +59,20 @@ function cells(r: LevelResult, decimals: number, quote: string): string[] {
     r.avgSlippageBp === null ? '—' : `${r.avgSlippageBp.toFixed(2)} bp`,
     `${formatAtoms(r.maxDrawdown, decimals)} ${quote}`,
   ]
+  return withView ? [...base, viewMovedText(r)] : base
 }
 
 function Rows({ run }: { run: Run }) {
   const decimals = run.market.quoteDecimals
   const quote = run.market.quoteSymbol
+  const columns = columnsFor(run)
+  const withView = run.resolution !== null
   return (
     <>
       <table className="hidden w-full border-collapse md:table">
         <thead>
           <tr>
-            {COLUMNS.map((c, i) => (
+            {columns.map((c, i) => (
               <th
                 key={c}
                 className={`qe-smallcaps border-b border-[hsl(var(--qe-rule))] pb-2 text-[10px] font-normal text-[hsl(var(--qe-dim))] ${
@@ -72,9 +93,9 @@ function Rows({ run }: { run: Run }) {
                 color: r.pnl.startsWith('-') ? 'hsl(var(--qe-loss))' : 'hsl(var(--qe-text))',
               }}
             >
-              {cells(r, decimals, quote).map((v, i) => (
+              {cells(r, decimals, quote, withView).map((v, i) => (
                 <td
-                  key={COLUMNS[i]}
+                  key={columns[i]}
                   className={`qe-mono py-[7px] text-[13px] ${i === 0 ? 'text-left' : 'text-right'}`}
                 >
                   {v}
@@ -94,10 +115,12 @@ function Rows({ run }: { run: Run }) {
           >
             <p className="qe-mono mb-1 text-[13px]">{r.latencyMs} ms</p>
             <dl className="space-y-[2px]">
-              {COLUMNS.slice(1).map((c, i) => (
+              {columns.slice(1).map((c, i) => (
                 <div key={c} className="flex items-baseline justify-between gap-4">
                   <dt className="text-[11px] text-[hsl(var(--qe-dim))]">{c}</dt>
-                  <dd className="qe-mono text-[13px]">{cells(r, decimals, quote)[i + 1]}</dd>
+                  <dd className="qe-mono text-[13px]">
+                    {cells(r, decimals, quote, withView)[i + 1]}
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -108,14 +131,59 @@ function Rows({ run }: { run: Run }) {
   )
 }
 
-function costSentence(run: Run): string {
+export function costSentence(run: Run): string {
   const c = run.cost
   if (c === null) {
     return 'Undefined: fewer than two delay levels where most orders filled, so there is no slope to take.'
   }
-  const base = `Slope of P&L between ${c.fromMs} ms and ${c.toMs} ms.`
-  if (c.excludedMs.length === 0) return base
-  return `${base} Levels ${c.excludedMs.join(', ')} ms are left out: at least half the orders there never filled, so the strategy stops being the same strategy and the fit stops before them.`
+  const parts = [
+    `Slope of P&L between ${c.fromMs} ms and ${c.toMs} ms.`,
+    'A secant between those two levels, so the figure moves with the grid: the same P&L difference over a longer span is a smaller number per 100 ms. It is not a property of the market alone — read it with the range, never without it.',
+  ]
+  if (c.fromMs === 0) {
+    parts.push(
+      'The 0 ms row is the execution model, not the market: there the strategy is filled against the very state it decided on, so slippage and unfilled orders are impossible by construction, and the step off it is partly an artefact.',
+    )
+  }
+  const far = run.results.find((r) => r.latencyMs === c.toMs)
+  if (far !== undefined && far.shiftedPct === 0 && far.comparedWithMs !== null) {
+    parts.push(
+      `At ${c.toMs} ms the view never moved off ${far.comparedWithMs} ms, so the far end of the slope adds delay the data cannot see — the span is longer than the evidence behind it.`,
+    )
+  }
+  if (c.excludedMs.length > 0) {
+    parts.push(
+      `Levels ${c.excludedMs.join(', ')} ms are left out: at least half the orders there never filled, so the strategy stops being the same strategy and the fit stops before them.`,
+    )
+  }
+  return parts.join(' ')
+}
+
+/**
+ * The rungs that repeat the one before them. The ladder draws every level at full height, so
+ * equal bars read as equal measurements unless the axis says otherwise.
+ */
+export function ladderNote(run: Run): string | null {
+  const collapsed = run.results.filter((r) => r.shiftedPct === 0).map((r) => r.latencyMs)
+  return collapsed.length === 0 ? null : `${collapsed.join(', ')} ms repeat the rung before`
+}
+
+/**
+ * What the period's own grain allows the grid to say (FR-013a). `null` on runs finished before the
+ * measure existed — an absent note is honest, an invented one is not.
+ */
+export function resolutionNote(run: Run): string | null {
+  const res = run.resolution
+  if (res === null) return null
+  const grain =
+    res.medianGapMs === null
+      ? `The period holds ${formatCount(res.steps)} book state${res.steps === 1 ? '' : 's'} — too few to speak of a gap between them.`
+      : `Book states in this period are ${formatCount(res.medianGapMs)} ms apart at the median, over ${formatCount(res.steps)} of them.`
+  const collapsed = run.results.filter((r) => r.shiftedPct === 0).map((r) => r.latencyMs)
+  if (collapsed.length === 0) {
+    return `${grain} Every level of this grid landed on a state its faster neighbour had not seen, so no row here repeats another by construction.`
+  }
+  return `${grain} ${collapsed.join(', ')} ms never landed on a state their faster neighbour had not already seen: those rows repeat it exactly, and the delays are not priced apart. A finer grid would not help — only a period whose states arrive closer together would.`
 }
 
 function Loaded({ run, preset }: { run: Run; preset: Preset | undefined }) {
@@ -178,6 +246,7 @@ function Loaded({ run, preset }: { run: Run; preset: Preset | undefined }) {
           <section className="mt-6 border-t border-[hsl(var(--qe-rule))] pt-4">
             <LatencyLadder
               levels={run.results.map((r) => toLadder(r, decimals, quote))}
+              note={ladderNote(run)}
               segment={
                 run.cost
                   ? {
@@ -195,6 +264,16 @@ function Loaded({ run, preset }: { run: Run; preset: Preset | undefined }) {
             <p className="mt-3 max-w-[820px] text-[11px] leading-[1.55] text-[hsl(var(--qe-dim))]">
               {FOOTNOTE}
             </p>
+            {resolutionNote(run) !== null && (
+              <>
+                <p className="mt-3 max-w-[820px] text-[11px] leading-[1.55] text-[hsl(var(--qe-dim))]">
+                  {resolutionNote(run)}
+                </p>
+                <p className="mt-2 max-w-[820px] text-[11px] leading-[1.55] text-[hsl(var(--qe-faint))]">
+                  {VIEW_FOOTNOTE}
+                </p>
+              </>
+            )}
           </section>
         </>
       )}

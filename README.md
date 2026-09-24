@@ -37,6 +37,16 @@ Three screens:
   compare screen shows exactly that rather than implying a measurement.
 - **A run over incomplete data does not start.** The API names the missing
   ranges instead of silently computing across gaps.
+- **A delay grid finer than the data says so.** Book states arrive at a rate the
+  market sets, so a delay shorter than the gap between them looks at the same
+  state as the faster level and returns the same row — by construction, not
+  because the delay is free. Each row reports the share of steps on which its
+  view actually moved off its faster neighbour's; `0` is rendered as `same view`,
+  and the run reports the median gap that caused it. The "cost of 100 ms" is a
+  secant between the two end levels, so it moves with the grid you chose; the
+  result says so, and says that the 0 ms row is the execution model (the strategy
+  is filled against the very state it decided on) rather than a market
+  measurement.
 - **Runs are byte-for-byte reproducible.** The engine has no I/O, no clock, no
   randomness; money and sizes are integers in the smallest units.
 - **No provider is claimed to match any number here.** No DoubleZero figures, no

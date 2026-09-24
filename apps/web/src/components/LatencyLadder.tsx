@@ -9,6 +9,11 @@ export interface LadderLevel {
 interface Props {
   levels: LadderLevel[]
   segment?: { fromIndex: number; toIndex: number; label: string } | null
+  /**
+   * Appended to the axis caption. Equal rungs look like equal measurements, so when some of them
+   * repeat their faster neighbour the axis has to say so where the eye already is.
+   */
+  note?: string | null
 }
 
 /* Geometry constants — layout only, no figure is derived for display. */
@@ -21,7 +26,7 @@ const FIRST_X = 96
 const STEP = 192
 const BAR_W = 46
 
-export default function LatencyLadder({ levels, segment }: Props) {
+export default function LatencyLadder({ levels, segment, note }: Props) {
   const maxPos = Math.max(0, ...levels.map((l) => l.pnl))
   const maxNeg = Math.max(0, ...levels.map((l) => -l.pnl))
   const span = maxPos + maxNeg || 1
@@ -162,6 +167,7 @@ export default function LatencyLadder({ levels, segment }: Props) {
           fontFamily="var(--qe-font-sans)"
         >
           Feed delay — five fixed rungs, equal spacing
+          {note ? ` · ${note}` : ''}
         </text>
       </svg>
     </div>
