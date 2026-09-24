@@ -102,10 +102,14 @@ export function drizzleRepo(db: Db): Repo {
       return row ? { tMs: ms(row.firstSeenAt), levels: row.levels } : null
     },
 
+    // Active channels only. A retired one keeps its rows, but it is not a lane any more, and an
+    // arrival over a channel that is not here is dropped rather than shown — `groupByEvent` skips
+    // unknown paths, so no real arrival can leak onto the screen without its channel (SC-007).
     paths: () =>
       db
         .select({ id: deliveryPaths.id, name: deliveryPaths.name, kind: deliveryPaths.kind })
         .from(deliveryPaths)
+        .where(eq(deliveryPaths.active, true))
         .orderBy(asc(deliveryPaths.id)),
 
     async arrivalsSince(marketId, sinceMs) {

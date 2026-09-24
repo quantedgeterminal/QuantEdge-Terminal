@@ -159,3 +159,73 @@ describe('pathKind audit (SC-007)', () => {
     expect((await app.request('/markets/9/arrivals')).status).toBe(404)
   })
 })
+
+/**
+ * T060: a provider we stopped collecting from keeps its row and its arrivals — what it measured
+ * was real — but it is not a lane any more. `paths()` returns active channels only, so a retired
+ * one is simply absent from the table here, exactly as the `active` filter leaves it in Postgres.
+ */
+describe('a retired channel (SC-007, T060)', () => {
+  /** `helius` (id 1) has been retired; `alchemy` (2) and `chainstack` (4) are collecting. */
+  function afterTheSwitch() {
+    const repo = new MemoryRepo()
+    repo.markets.push({
+      id: 1,
+      venue: 'manifest',
+      address: 'x',
+      label: 'cbBTC/USDC',
+      baseDecimals: 8,
+      quoteDecimals: 6,
+      baseSymbol: 'cbBTC',
+      quoteSymbol: 'USDC',
+      active: true,
+    })
+    repo.pathRows.push(
+      { id: 2, name: 'alchemy', kind: 'real' },
+      { id: 4, name: 'chainstack', kind: 'real' },
+    )
+    const t = NOW - 10_000
+    repo.arrivalRows.set(1, [
+      // The last seconds of the retired channel are still inside the 60 s window.
+      { bookUpdateId: 1n, pathId: 1, receivedAtUs: BigInt(t) * 1000n, tMs: t },
+      { bookUpdateId: 1n, pathId: 2, receivedAtUs: BigInt(t + 12) * 1000n, tMs: t },
+      { bookUpdateId: 1n, pathId: 4, receivedAtUs: BigInt(t + 30) * 1000n, tMs: t },
+    ])
+    return createApp(
+      repo,
+      () => '44444444-4444-4444-8444-444444444444',
+      () => NOW,
+    )
+  }
+
+  it('its arrivals are dropped, never relabelled as emulated', async () => {
+    const app = afterTheSwitch()
+    const res = await app.request('/markets/1/arrivals')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      paths: { pathId: number; name: string; kind: string }[]
+      events: { arrivals: { pathId: number; kind: string }[] }[]
+    }
+    expect(audit(body)).toEqual([])
+    expect(body.paths.map((p) => p.name)).toEqual(['alchemy', 'chainstack'])
+    // The claim that matters: the retired channel is gone, not present with a borrowed kind.
+    const seen = body.events.flatMap((e) => e.arrivals.map((a) => a.pathId))
+    expect(seen).not.toContain(1)
+    expect(seen).toEqual([2, 4])
+  })
+
+  it('the measurement is still between two real channels', async () => {
+    const app = afterTheSwitch()
+    const body = (await (await app.request('/markets/1/latency')).json()) as {
+      measurable: boolean
+      sharedEvents: number
+      paths: { pathId: number; name: string; p50Ms: number | null }[]
+    }
+    expect(body.paths.map((p) => p.name)).toEqual(['alchemy', 'chainstack'])
+    expect(body.measurable).toBe(true)
+    expect(body.sharedEvents).toBe(1)
+    // Lag is taken from the earliest *active* real channel, so retiring one does not shift it.
+    expect(body.paths.find((p) => p.name === 'alchemy')?.p50Ms).toBe(0)
+    expect(body.paths.find((p) => p.name === 'chainstack')?.p50Ms).toBe(18)
+  })
+})

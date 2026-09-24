@@ -1,13 +1,15 @@
 /**
  * Reference rows for the collector: markets from `MARKET_ADDRESSES` (symbols from `MARKET_SYMBOLS`,
  * because a mint without metadata has no symbol) and two real channels from `RPC_A_NAME`/`RPC_B_NAME`.
- * Idempotent — running it again duplicates nothing but refreshes symbols and label.
+ * Idempotent — running it again duplicates nothing but refreshes symbols and label, and marks any
+ * real channel outside the environment as retired (its row and arrivals stay).
  *
  *   pnpm --filter @quantedge/collector seed   (reads .env: DATABASE_URL_MIGRATE, MARKET_ADDRESSES, MARKET_SYMBOLS, RPC_*_NAME)
  */
 
 import { deliveryPaths, markets } from '@quantedge/db'
 import { decodeMarketHeader } from '@quantedge/venue'
+import { and, eq, notInArray } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { z } from 'zod'
@@ -120,12 +122,31 @@ for (const [i, address] of env.MARKET_ADDRESSES.entries()) {
   )
 }
 
-for (const name of [env.RPC_A_NAME, env.RPC_B_NAME]) {
+/**
+ * The two names in the environment are the channels we collect from; every other real channel in
+ * the table is one we have retired. Keeping that in the seed means the config stays the single
+ * source of truth — switching a provider is an env change plus this script, with no hand-written
+ * SQL. Retired rows and their arrivals are never deleted: what they measured was real.
+ */
+const collecting = [env.RPC_A_NAME, env.RPC_B_NAME]
+for (const name of collecting) {
   await db
     .insert(deliveryPaths)
-    .values({ name, kind: 'real', provider: name })
-    .onConflictDoNothing({ target: deliveryPaths.name })
-  console.log(`path ${name} real`)
+    .values({ name, kind: 'real', provider: name, active: true })
+    .onConflictDoUpdate({ target: deliveryPaths.name, set: { active: true } })
+  console.log(`path ${name} real, collecting`)
 }
+const retired = await db
+  .update(deliveryPaths)
+  .set({ active: false })
+  .where(
+    and(
+      eq(deliveryPaths.kind, 'real'),
+      eq(deliveryPaths.active, true), // only report the ones this run actually retires
+      notInArray(deliveryPaths.name, collecting),
+    ),
+  )
+  .returning({ name: deliveryPaths.name })
+for (const p of retired) console.log(`path ${p.name} real, retired — row and arrivals kept`)
 
 await sql.end()

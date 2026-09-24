@@ -36,6 +36,13 @@ export const deliveryPaths = pgTable(
     kind: pathKind().notNull(),
     provider: text(),
     note: text(),
+    /**
+     * Whether this channel is still being collected. A retired channel keeps its row and its
+     * arrivals: the measurements it delivered were real and stay attributed to it. It just stops
+     * being offered as a lane, so a provider we no longer use does not sit on the compare screen
+     * for ever reading "not delivering".
+     */
+    active: boolean().notNull().default(true),
   },
   (t) => [uniqueIndex('delivery_paths_name_idx').on(t.name)],
 )

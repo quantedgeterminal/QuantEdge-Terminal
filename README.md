@@ -122,6 +122,21 @@ project site; the database stays on Supabase.
   over 8 minutes. Gaps that still happen (deploys, misses) are recorded as gaps,
   never papered over.
 - `.github/workflows/ci.yml` runs `pnpm gate` on every push.
+- Switching the provider behind a channel is `RPC_A_NAME` + `RPC_A_WS_URL` in the
+  dashboard, then `pnpm --filter @quantedge/collector seed`: the two names in the
+  environment are the channels being collected, and any other real channel is marked
+  retired. A retired channel keeps its row and its arrivals — what it measured was
+  real and stays attributed to it — but it stops being offered as a lane, so a
+  provider no longer in use does not sit on the compare screen reading
+  "not delivering" for ever.
+
+What a channel costs depends on how its provider counts, and the two models point
+at different levers. Metered by **data**, one market's account stream is ~74 MB/h
+while the slot subscription is ~2 MB/h: slots are 85 % of the messages and 2.5 % of
+the bytes, so `LATENCY_MARKETS` is the lever and `CHANNEL_A_SLOTS` is noise.
+Metered by **message**, it is the other way round: slots alone are ~13 500/h against
+~2 300/h for one market's book. Measure before choosing a plan; both levers exist
+because which one matters is not a property of this code.
 
 Known limit: the run-time budget (SC-001) was measured on a laptop; a free
 instance has a fraction of a CPU, so re-measure there before relying on it.
