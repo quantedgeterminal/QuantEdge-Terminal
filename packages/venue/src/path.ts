@@ -43,23 +43,45 @@ export interface RpcWsPathOptions {
    * not affect it.
    */
   commitment?: Commitment
+  /**
+   * The subscription client. Defaults to a `Connection` on `wsUrl`; tests pass a stub to check
+   * what the subscription actually asks the provider for.
+   */
+  connection?: AccountWatcher
+}
+
+/**
+ * The part of `Connection` a channel uses. Narrow on purpose: a structural type keeps the
+ * subscription arguments testable without standing up a node.
+ */
+export interface AccountWatcher {
+  onAccountChange(
+    key: PublicKey,
+    callback: (info: { data: Buffer }, ctx: { slot: number }) => void,
+    config: { commitment: Commitment; encoding: 'base64' },
+  ): number
+  removeAccountChangeListener(id: number): Promise<void>
+  onSlotChange(callback: (info: { slot: number }) => void): number
+  removeSlotChangeListener(id: number): Promise<void>
 }
 
 /** Real channel: `accountSubscribe` at a specific provider. */
 export class RpcWsPath implements DeliveryPath {
   readonly name: string
   readonly kind = 'real' as const
-  private readonly connection: Connection
+  private readonly connection: AccountWatcher
   private readonly commitment: Commitment
 
   constructor(opts: RpcWsPathOptions) {
     this.name = opts.name
     this.commitment = opts.commitment ?? 'confirmed'
-    // web3.js always requires an HTTP address; it is not used for subscriptions.
-    this.connection = new Connection(opts.wsUrl.replace(/^ws/, 'http'), {
-      wsEndpoint: opts.wsUrl,
-      commitment: this.commitment,
-    })
+    this.connection =
+      opts.connection ??
+      // web3.js always requires an HTTP address; it is not used for subscriptions.
+      new Connection(opts.wsUrl.replace(/^ws/, 'http'), {
+        wsEndpoint: opts.wsUrl,
+        commitment: this.commitment,
+      })
   }
 
   async subscribe(account: string, onUpdate: (u: AccountUpdate) => void): Promise<Unsubscribe> {
@@ -68,7 +90,12 @@ export class RpcWsPath implements DeliveryPath {
       (info, ctx) => {
         onUpdate({ slot: BigInt(ctx.slot), data: new Uint8Array(info.data), receivedAtUs: nowUs() })
       },
-      { commitment: this.commitment },
+      // `encoding` is named, never left to the provider. The RPC default is the legacy string
+      // form, which web3.js coerces to an empty buffer: the channel then delivers updates whose
+      // account data is zero bytes and every book "does not decode". Two providers happened to
+      // answer base64 without being asked and hid this for a fortnight; the third did not
+      // (2026-09-24). A subscription that only works by a provider's habit is not a subscription.
+      { commitment: this.commitment, encoding: 'base64' },
     )
     return () => this.connection.removeAccountChangeListener(id)
   }

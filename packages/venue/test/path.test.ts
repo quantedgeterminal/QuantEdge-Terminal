@@ -1,5 +1,13 @@
+import type { Commitment, PublicKey } from '@solana/web3.js'
 import { describe, expect, it, vi } from 'vitest'
-import { type AccountUpdate, type DeliveryPath, EmulatedPath, nowUs } from '../src/path.ts'
+import {
+  type AccountUpdate,
+  type AccountWatcher,
+  type DeliveryPath,
+  EmulatedPath,
+  nowUs,
+  RpcWsPath,
+} from '../src/path.ts'
 
 /** In-memory real channel: the test controls when an update arrives. */
 function fakeReal(name = 'fake-real') {
@@ -93,5 +101,77 @@ describe('EmulatedPath', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+/**
+ * Records what a subscription actually asks the provider for. The RPC default encoding is the
+ * legacy string form, which web3.js coerces to an empty buffer — a channel that leaves the
+ * encoding unnamed delivers zero-byte accounts and every book "does not decode" (2026-09-24,
+ * on switching the provider behind channel A). Two providers answered base64 unasked and hid it.
+ */
+function watcher() {
+  const calls: { config: { commitment: string; encoding: string } }[] = []
+  const removed: number[] = []
+  let notify: ((info: { data: Buffer }, ctx: { slot: number }) => void) | undefined
+  return {
+    calls,
+    removed,
+    emit: (data: Buffer, slot: number) => notify?.({ data }, { slot }),
+    watcher: {
+      onAccountChange: (
+        _key: PublicKey,
+        cb: (info: { data: Buffer }, ctx: { slot: number }) => void,
+        config: { commitment: Commitment; encoding: 'base64' },
+      ) => {
+        notify = cb
+        calls.push({ config })
+        return 7
+      },
+      removeAccountChangeListener: async (id: number) => {
+        removed.push(id)
+      },
+      onSlotChange: () => 8,
+      removeSlotChangeListener: async (id: number) => {
+        removed.push(id)
+      },
+    } satisfies AccountWatcher,
+  }
+}
+
+const ACCOUNT = 'Bey9vLee8CrC8S7iqNseb146upQCnSTbJQbu6vLiBRpD'
+
+describe('RpcWsPath — the subscription names its encoding', () => {
+  it('asks for base64 and the channel commitment, never the provider default', async () => {
+    const w = watcher()
+    const path = new RpcWsPath({ name: 'x', wsUrl: 'wss://example.invalid', connection: w.watcher })
+    await path.subscribe(ACCOUNT, () => {})
+    expect(w.calls).toHaveLength(1)
+    expect(w.calls[0]?.config).toEqual({ commitment: 'confirmed', encoding: 'base64' })
+  })
+
+  it('the commitment of the channel is the one that goes out', async () => {
+    const w = watcher()
+    const path = new RpcWsPath({
+      name: 'x',
+      wsUrl: 'wss://example.invalid',
+      commitment: 'processed',
+      connection: w.watcher,
+    })
+    await path.subscribe(ACCOUNT, () => {})
+    expect(w.calls[0]?.config.commitment).toBe('processed')
+  })
+
+  it('an update carries the account bytes and its slot, and unsubscribing removes the listener', async () => {
+    const w = watcher()
+    const path = new RpcWsPath({ name: 'x', wsUrl: 'wss://example.invalid', connection: w.watcher })
+    const seen: AccountUpdate[] = []
+    const stop = await path.subscribe(ACCOUNT, (u) => seen.push(u))
+    w.emit(Buffer.from([1, 2, 3]), 449_975_278)
+    expect(seen).toHaveLength(1)
+    expect(seen[0]?.slot).toBe(449_975_278n)
+    expect([...(seen[0]?.data ?? [])]).toEqual([1, 2, 3])
+    await stop()
+    expect(w.removed).toEqual([7])
   })
 })
