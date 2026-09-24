@@ -7,6 +7,7 @@ import type {
   NewRun,
   NewStrategy,
   Repo,
+  RunResolution,
   RunRow,
   RunTally,
   StrategyRow,
@@ -94,6 +95,7 @@ export class MemoryRepo implements Repo {
       error: null,
       createdAtMs: this.nowMs,
       finishedAtMs: null,
+      resolution: null,
     }
     this.runs.set(id, row)
     this.runIps.set(id, clientIp)
@@ -102,11 +104,11 @@ export class MemoryRepo implements Repo {
   async getRun(id: string) {
     return this.runs.get(id) ?? null
   }
-  async finishRun(id: string, results: readonly LevelResult[]) {
+  async finishRun(id: string, results: readonly LevelResult[], resolution: RunResolution) {
     const run = this.runs.get(id)
     if (!run) throw new Error('no such run')
     this.resultRows.set(id, [...results])
-    this.runs.set(id, { ...run, status: 'done', finishedAtMs: 1_700_000_001_000 })
+    this.runs.set(id, { ...run, status: 'done', finishedAtMs: 1_700_000_001_000, resolution })
   }
   async failRun(id: string, error: string) {
     const run = this.runs.get(id)

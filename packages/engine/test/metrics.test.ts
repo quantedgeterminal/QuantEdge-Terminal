@@ -13,6 +13,7 @@ function level(latencyMs: number, pnl: bigint, orders = 100, unfilled = 0): Leve
     filledNotional: 0n,
     maxDrawdown: 0n,
     finalPosition: 0n,
+    shiftedSteps: null,
   }
 }
 

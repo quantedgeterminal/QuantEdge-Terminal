@@ -1,6 +1,6 @@
 // Backtest engine: pure functions, zero I/O (SC-002).
 export { type Execution, execute } from './fill.ts'
-export { assertOrdered, delayedIndex } from './latency.ts'
+export { assertOrdered, delayedIndex, medianGapMs } from './latency.ts'
 export { type CostPer100Ms, costPer100Ms, unfilledPct } from './metrics.ts'
 export {
   commonParams,

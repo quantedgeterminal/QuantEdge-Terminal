@@ -31,6 +31,10 @@ function toRunRow(r: typeof backtestRuns.$inferSelect): RunRow {
     error: r.error,
     createdAtMs: ms(r.createdAt),
     finishedAtMs: r.finishedAt === null ? null : ms(r.finishedAt),
+    // `step_count` is what marks the resolution as measured: `median_gap_ms` is legitimately
+    // null on a one-state period, so it cannot carry that distinction on its own.
+    resolution:
+      r.stepCount === null ? null : { stepCount: r.stepCount, medianGapMs: r.medianGapMs },
   }
 }
 
@@ -178,7 +182,7 @@ export function drizzleRepo(db: Db): Repo {
       return row ? toRunRow(row) : null
     },
 
-    async finishRun(id, results) {
+    async finishRun(id, results, resolution) {
       await db.transaction(async (tx) => {
         if (results.length > 0) {
           await tx.insert(runResults).values(
@@ -193,12 +197,18 @@ export function drizzleRepo(db: Db): Repo {
               filledNotional: r.filledNotional,
               maxDrawdown: r.maxDrawdown,
               finalPosition: r.finalPosition,
+              shiftedSteps: r.shiftedSteps,
             })),
           )
         }
         await tx
           .update(backtestRuns)
-          .set({ status: 'done', finishedAt: new Date() })
+          .set({
+            status: 'done',
+            finishedAt: new Date(),
+            stepCount: resolution.stepCount,
+            medianGapMs: resolution.medianGapMs,
+          })
           .where(eq(backtestRuns.id, id))
       })
     },
@@ -227,6 +237,7 @@ export function drizzleRepo(db: Db): Repo {
           filledNotional: r.filledNotional,
           maxDrawdown: r.maxDrawdown,
           finalPosition: r.finalPosition,
+          shiftedSteps: r.shiftedSteps,
         }),
       )
     },

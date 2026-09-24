@@ -66,6 +66,14 @@ export const backtestRuns = pgTable(
     finishedAt: timestamp('finished_at', { withTimezone: true }),
     /** Client IP for the quota (FR-023); `null` if the adapter does not know it. Not personal data in the FR-022a sense: not linked to a person and never sent out. */
     clientIp: text('client_ip'),
+    /**
+     * How the period's own resolution bounds the grid (FR-013a). `step_count` is the number of
+     * book states the run walked — the denominator for `run_results.shifted_steps`; `median_gap_ms`
+     * is the median time between neighbouring states, the reason levels below it cannot differ.
+     * Both `null` on runs finished before the measure existed: absent, not zero.
+     */
+    stepCount: integer('step_count'),
+    medianGapMs: integer('median_gap_ms'),
   },
   (t) => [
     index('backtest_runs_session_idx').on(t.sessionKey, t.createdAt),
@@ -96,6 +104,12 @@ export const runResults = pgTable(
     maxDrawdown: bigint('max_drawdown', { mode: 'bigint' }).notNull(),
     /** Position at the end of the period in base atoms; P&L already includes its mark at mid. */
     finalPosition: bigint('final_position', { mode: 'bigint' }).notNull(),
+    /**
+     * Steps where this level saw a different state than the next-faster level of the same grid
+     * (FR-013a). `0` means the data cannot separate the two levels; `null` on the fastest level of
+     * the grid, which has nothing to compare with, and on runs finished before the measure existed.
+     */
+    shiftedSteps: integer('shifted_steps'),
   },
   (t) => [primaryKey({ columns: [t.runId, t.latencyMs] })],
 )

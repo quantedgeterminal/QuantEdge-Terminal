@@ -46,6 +46,20 @@ export interface RunRow {
   readonly error: string | null
   readonly createdAtMs: number
   readonly finishedAtMs: number | null
+  /** Resolution of the period the run walked; `null` on runs finished before it was measured. */
+  readonly resolution: RunResolution | null
+}
+
+/**
+ * What the data's own resolution allows the grid to say (FR-013a): how many book states the run
+ * walked, and how far apart they were. A delay level below `medianGapMs` rarely crosses a state
+ * boundary, so it cannot differ from a faster one — `LevelResult.shiftedSteps` counts how often
+ * it did, and `stepCount` is that count's denominator.
+ */
+export interface RunResolution {
+  readonly stepCount: number
+  /** `null` with fewer than two states: there is no gap to take a median of. */
+  readonly medianGapMs: number | null
 }
 
 /** What the quota needs (FR-023): how many runs are in the window and when the oldest was. */
@@ -104,7 +118,7 @@ export interface Repo {
   runsByIp(clientIp: string, sinceMs: number): Promise<RunTally>
   createRun(run: NewRun): Promise<RunRow>
   getRun(id: string): Promise<RunRow | null>
-  finishRun(id: string, results: readonly LevelResult[]): Promise<void>
+  finishRun(id: string, results: readonly LevelResult[], resolution: RunResolution): Promise<void>
   failRun(id: string, error: string): Promise<void>
   results(runId: string): Promise<LevelResult[]>
 

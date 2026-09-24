@@ -31,6 +31,15 @@ export interface LevelResult {
   readonly maxDrawdown: bigint
   /** Position at the end of the period in base atoms; non-zero — marked at mid. */
   readonly finalPosition: bigint
+  /**
+   * Steps where this level looked at a different snapshot than the next-faster level of the same
+   * grid did; `null` for the fastest level, which has nothing to compare against.
+   *
+   * `0` is the honest form of "this level told you nothing": the delay never crossed a state
+   * boundary the faster one had not crossed, so the two rows are identical by construction rather
+   * than by coincidence. The denominator is the number of steps — `snapshots.length`.
+   */
+  readonly shiftedSteps: number | null
 }
 
 /** One level's account: what changes on every step. */
@@ -65,6 +74,10 @@ function equity(l: Ledger, mid: bigint | null): bigint {
  * snapshot (FR-010) and is filled against snapshot `i` (FR-011). The data is the same for every
  * level by construction, so the only difference between rows is the delay.
  *
+ * The pass also counts, per level, how often the delay actually moved the view off the next-faster
+ * level's view (`shiftedSteps`). Without that count two identical rows are indistinguishable from
+ * two rows that happen to agree, and a grid finer than the data can be read as a measurement.
+ *
  * No I/O, clock or randomness: the same inputs → the same output (SC-002).
  */
 export function runBacktest(input: RunInput): LevelResult[] {
@@ -75,29 +88,45 @@ export function runBacktest(input: RunInput): LevelResult[] {
       throw new RangeError(`delay level must be an integer ≥ 0: ${ms}`)
   }
 
-  const ledgers = levelsMs.map((delayMs) => ({ delayMs, ledger: freshLedger(strategy.init()) }))
+  const ledgers = levelsMs.map((delayMs) => ({
+    delayMs,
+    ledger: freshLedger(strategy.init()),
+    shifted: 0,
+  }))
+  // Levels are stepped from fastest to slowest so that each one can compare its cursor with the
+  // next-faster level's cursor for the same step. Ledgers are independent — nothing but the order
+  // of the inner loop changes, and the rows come back in the caller's order (SC-002 holds).
+  const ascending = [...ledgers].sort((a, b) => a.delayMs - b.delayMs)
+  const fastest = ascending[0]
   let lastMid: bigint | null = null
 
   for (let i = 0; i < snapshots.length; i++) {
     const now = snapshots[i]
     if (now === undefined) continue
     lastMid = midOf(now) ?? lastMid
-    for (const { delayMs, ledger } of ledgers) {
-      step(ledger, delayMs, snapshots, i, now, lastMid, market, strategy)
+    let fasterCursor: number | null = null
+    for (const entry of ascending) {
+      step(entry.ledger, entry.delayMs, snapshots, i, now, lastMid, market, strategy)
+      if (fasterCursor !== null && entry.ledger.cursor !== fasterCursor) entry.shifted++
+      fasterCursor = entry.ledger.cursor
     }
   }
 
-  return ledgers.map(({ delayMs, ledger: l }) => ({
-    latencyMs: delayMs,
-    pnl: equity(l, lastMid),
-    trades: l.trades,
-    orders: l.orders,
-    unfilled: l.unfilled,
-    slippageSum: l.slippageSum,
-    filledNotional: l.filledNotional,
-    maxDrawdown: l.maxDrawdown,
-    finalPosition: l.position,
-  }))
+  return ledgers.map((entry) => {
+    const l = entry.ledger
+    return {
+      latencyMs: entry.delayMs,
+      pnl: equity(l, lastMid),
+      trades: l.trades,
+      orders: l.orders,
+      unfilled: l.unfilled,
+      slippageSum: l.slippageSum,
+      filledNotional: l.filledNotional,
+      maxDrawdown: l.maxDrawdown,
+      finalPosition: l.position,
+      shiftedSteps: entry === fastest ? null : entry.shifted,
+    }
+  })
 }
 
 function freshLedger(state: unknown): Ledger {

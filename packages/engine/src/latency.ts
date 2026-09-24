@@ -44,3 +44,30 @@ export function assertOrdered(snapshots: readonly Snapshot[]): void {
       throw new RangeError(`snapshots are not ordered: t[${i}]=${b.t} < t[${i - 1}]=${a.t}`)
   }
 }
+
+/**
+ * Resolution of the period's data: the median gap between neighbouring snapshots, ms.
+ *
+ * This is the cause behind `LevelResult.shiftedSteps`. A delay smaller than the gap between
+ * states almost never crosses a state boundary, so every level below the median sees the same
+ * book and returns the same row — the data cannot tell those levels apart, however finely the
+ * grid is spaced. Naming the figure lets the result say so instead of showing duplicate rows
+ * as if they were separate measurements.
+ *
+ * The lower median, not the mean of the two middle values: the figure is then an element of the
+ * data with no rounding to argue about. Fewer than two snapshots — `null`, there is no gap.
+ */
+export function medianGapMs(snapshots: readonly Snapshot[]): number | null {
+  const gaps: number[] = []
+  for (let i = 1; i < snapshots.length; i++) {
+    const a = snapshots[i - 1]
+    const b = snapshots[i]
+    if (a === undefined || b === undefined) continue
+    gaps.push(b.t - a.t)
+  }
+  if (gaps.length === 0) return null
+  gaps.sort((x, y) => x - y)
+  // Integer arithmetic instead of `Math.floor`: the engine denies `Math` (SC-002).
+  const lowerMiddle = (gaps.length - (gaps.length % 2 === 0 ? 2 : 1)) / 2
+  return gaps[lowerMiddle] ?? null
+}

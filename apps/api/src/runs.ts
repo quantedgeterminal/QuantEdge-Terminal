@@ -4,6 +4,7 @@ import {
   defaultParams,
   findPreset,
   type LevelResult,
+  medianGapMs,
   runBacktest,
   type Snapshot,
   unfilledPct,
@@ -33,14 +34,20 @@ export async function executeRun(repo: Repo, run: RunRow): Promise<void> {
   }
   try {
     const rows = await repo.bookUpdates(run.marketId, run.fromMs, run.toMs)
+    const snapshots = rows.map(toSnapshot)
     const strategy = preset.build(run.params, MARKET_SPEC)
     const results = runBacktest({
-      snapshots: rows.map(toSnapshot),
+      snapshots,
       levelsMs: run.levelsMs,
       market: MARKET_SPEC,
       strategy,
     })
-    await repo.finishRun(run.id, results)
+    // The resolution is measured here, where the period is in memory anyway: reading it back
+    // later would cost a second full scan of the events for a figure that never changes.
+    await repo.finishRun(run.id, results, {
+      stepCount: snapshots.length,
+      medianGapMs: medianGapMs(snapshots),
+    })
   } catch (e) {
     await repo.failRun(run.id, e instanceof Error ? e.message : String(e))
   }
@@ -70,11 +77,31 @@ export interface LevelResultDto {
   readonly avgSlippageBp: number | null
   readonly maxDrawdown: string
   readonly finalPosition: string
+  /** The next-faster level of the same grid this row is measured against; `null` on the fastest. */
+  readonly comparedWithMs: number | null
+  /** Steps where this level saw a different book state than that one; `null` when not measured. */
+  readonly shiftedSteps: number | null
+  /**
+   * The same as a share of the run's steps, two decimals. `0` is the load-bearing value: the delay
+   * never moved the view, so this row repeats the faster one because the data has no finer grain —
+   * not because the two delays cost the same.
+   */
+  readonly shiftedPct: number | null
 }
 
-export function toDto(r: LevelResult): LevelResultDto {
+/** What a level row needs from the run it belongs to in order to describe its own resolution. */
+export interface LevelContext {
+  readonly comparedWithMs: number | null
+  readonly steps: number | null
+}
+
+export function toDto(r: LevelResult, ctx: LevelContext): LevelResultDto {
   const avgSlippageBp =
     r.filledNotional === 0n ? null : Number((r.slippageSum * 1_000_000n) / r.filledNotional) / 100
+  const shiftedPct =
+    r.shiftedSteps === null || ctx.steps === null || ctx.steps === 0
+      ? null
+      : Number((BigInt(r.shiftedSteps) * 10_000n) / BigInt(ctx.steps)) / 100
   return {
     latencyMs: r.latencyMs,
     pnl: r.pnl.toString(),
@@ -87,7 +114,25 @@ export function toDto(r: LevelResult): LevelResultDto {
     avgSlippageBp,
     maxDrawdown: r.maxDrawdown.toString(),
     finalPosition: r.finalPosition.toString(),
+    comparedWithMs: ctx.comparedWithMs,
+    shiftedSteps: r.shiftedSteps,
+    shiftedPct,
   }
+}
+
+/**
+ * Which level each row is compared with: the next-faster one of the same grid. Storage keys
+ * results by `(run, latencyMs)`, so the levels here are distinct and the order is a total one.
+ */
+export function comparedWith(results: readonly LevelResult[]): Map<number, number | null> {
+  const ascending = [...results].sort((a, b) => a.latencyMs - b.latencyMs)
+  const out = new Map<number, number | null>()
+  let faster: number | null = null
+  for (const r of ascending) {
+    out.set(r.latencyMs, faster)
+    faster = r.latencyMs
+  }
+  return out
 }
 
 export interface CostDto {
@@ -102,6 +147,8 @@ export function costDto(c: CostPer100Ms | null): CostDto | null {
 }
 
 export function runDto(run: RunRow, market: MarketRow, results: readonly LevelResult[]) {
+  const faster = comparedWith(results)
+  const steps = run.resolution?.stepCount ?? null
   return {
     id: run.id,
     status: run.status,
@@ -119,8 +166,15 @@ export function runDto(run: RunRow, market: MarketRow, results: readonly LevelRe
     from: new Date(run.fromMs).toISOString(),
     to: new Date(run.toMs).toISOString(),
     levelsMs: run.levelsMs,
-    results: results.map(toDto),
+    results: results.map((r) =>
+      toDto(r, { comparedWithMs: faster.get(r.latencyMs) ?? null, steps }),
+    ),
     cost: run.status === 'done' ? costDto(costPer100Ms(results)) : null,
+    /** What the period's own grain allows the grid above to say (FR-013a). */
+    resolution:
+      run.resolution === null
+        ? null
+        : { steps: run.resolution.stepCount, medianGapMs: run.resolution.medianGapMs },
     createdAt: new Date(run.createdAtMs).toISOString(),
     finishedAt: run.finishedAtMs === null ? null : new Date(run.finishedAtMs).toISOString(),
   }

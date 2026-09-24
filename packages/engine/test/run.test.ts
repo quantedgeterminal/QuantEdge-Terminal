@@ -40,6 +40,7 @@ describe('runBacktest — accounting by hand', () => {
       filledNotional: 917n + 918n,
       maxDrawdown: 17n,
       finalPosition: 0n,
+      shiftedSteps: null, // the fastest level of the grid has nothing to compare against
     })
   })
 

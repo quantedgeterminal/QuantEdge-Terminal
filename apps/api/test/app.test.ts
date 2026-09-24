@@ -283,6 +283,46 @@ describe('POST /runs → GET /runs/:id', () => {
     expect(body.params.thinRatioPct).toBe(20) // default merged in
   })
 
+  it('resolution: the period names its own grain, and the grid says which levels it cannot separate', async () => {
+    const res = await s.app.request(`/runs/${runId}`, { headers: { 'X-Session-Key': SESSION } })
+    const body = (await res.json()) as {
+      resolution: { steps: number; medianGapMs: number | null } | null
+      results: {
+        latencyMs: number
+        pnl: string
+        comparedWithMs: number | null
+        shiftedSteps: number | null
+        shiftedPct: number | null
+      }[]
+    }
+    // The fixture puts 1–3 s between events, like the collected feed.
+    expect(body.resolution?.medianGapMs).toBeGreaterThanOrEqual(1000)
+    expect(body.resolution?.medianGapMs).toBeLessThanOrEqual(3000)
+    const steps = body.resolution?.steps ?? 0
+    expect(steps).toBeGreaterThan(0)
+
+    const at = (ms: number) => {
+      const r = body.results.find((x) => x.latencyMs === ms)
+      if (!r) throw new Error(`no level ${ms}`)
+      return r
+    }
+    // The fastest level of the grid has nothing above it to differ from.
+    expect(at(0)).toMatchObject({ comparedWithMs: null, shiftedSteps: null, shiftedPct: null })
+    // 50 ms already looks one state back — it differs from 0 ms on effectively every step.
+    expect(at(50).comparedWithMs).toBe(0)
+    expect(at(50).shiftedSteps).toBeGreaterThan(0)
+    expect(at(50).shiftedSteps).toBeLessThanOrEqual(steps)
+    // Every delay shorter than the gap lands on that same state and adds nothing.
+    for (const [ms, faster] of [
+      [100, 50],
+      [200, 100],
+      [400, 200],
+    ] as const) {
+      expect(at(ms)).toMatchObject({ comparedWithMs: faster, shiftedSteps: 0, shiftedPct: 0 })
+      expect(at(ms).pnl).toBe(at(50).pnl)
+    }
+  })
+
   it('another session sees 404, no session — 401', async () => {
     expect(
       (await s.app.request(`/runs/${runId}`, { headers: { 'X-Session-Key': OTHER } })).status,
