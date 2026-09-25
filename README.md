@@ -52,6 +52,18 @@ Three screens:
 - **No provider is claimed to match any number here.** No DoubleZero figures, no
   vendor benchmarks. Takers only — makers cannot be modelled honestly without a
   trade tape.
+- **On this venue the measured cost of latency is not positive, and the product
+  says so.** Over the frozen reference (15.57 h, three Manifest markets, the three
+  shipped presets), P&L at 0 ms is *lower* than at 400 ms in 10 of 10 windows. The
+  result survives 180 configurations — five order sizes from 100 to 1,000,000 USDC,
+  three slippage tolerances, two delay grids, two window sets — and a fourth preset
+  built so that speed would be an edge by construction. The mechanism is in two
+  measured numbers: average slippage at 400 ms is **−1…−9 bp**, i.e. the later order
+  fills *better* (the market mean-reverts over the ~1.5 s between book states), and
+  the 0 ms row never leaves an order unfilled *by construction*, because a strategy
+  with no delay is filled against the very book it read. A trader cannot occupy that
+  row. Scope of the claim: Manifest, 11–12 September, taker strategies, this
+  execution model — it does **not** say that speed fails to pay on Solana.
 
 Not in the product by decision: order execution, wallets, custody, accounts and
 authentication, user code or a strategy DSL, any monetisation, AMMs as a book
