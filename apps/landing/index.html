@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QuantEdge Terminal: what feed latency costs your strategy</title>
+  <meta name="description" content="Replay a strategy over recorded Solana order books at five feed delays and see P&amp;L at each. Measured, including when the answer is zero.">
+  <meta name="theme-color" content="#0b0d0f">
+  <link rel="canonical" href="https://quantedgeterminal.github.io/QuantEdge-Terminal/">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="QuantEdge Terminal">
+  <meta property="og:title" content="QuantEdge Terminal: what feed latency costs your strategy">
+  <meta property="og:description" content="Replay a strategy over recorded Solana order books at five feed delays and see P&amp;L at each. Measured, including when the answer is zero.">
+  <meta property="og:url" content="https://quantedgeterminal.github.io/QuantEdge-Terminal/">
+  <meta property="og:image" content="https://quantedgeterminal.github.io/QuantEdge-Terminal/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="QuantEdge Terminal logo and the line: what does feed latency cost your strategy?">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="QuantEdge Terminal: what feed latency costs your strategy">
+  <meta name="twitter:description" content="Replay a strategy over recorded Solana order books at five feed delays and see P&amp;L at each. Measured, including when the answer is zero.">
+  <meta name="twitter:image" content="https://quantedgeterminal.github.io/QuantEdge-Terminal/assets/og.png">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .diagram .only-narrow { display: none; }
+    @media (max-width: 720px) {
+      .diagram .only-wide { display: none; }
+      .diagram .only-narrow { display: block; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="bar">
+    <a class="brand mono" href="./" aria-label="QuantEdge Terminal home">
+      <img src="assets/logo.svg" width="36" height="36" alt="">
+      <span>QuantEdge Terminal</span>
+    </a>
+    <nav class="mono" aria-label="Primary">
+      <a class="muted" href="https://github.com/quantedgeterminal/QuantEdge-Terminal">Source</a>
+      <a href="./app/">Open the terminal &rarr;</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <section class="hero" aria-labelledby="hero-title">
+      <div>
+        <p class="eyebrow mono">Latency cost, measured on recorded Solana order books</p>
+        <h1 id="hero-title">What does feed latency cost your strategy? <span class="accent">Measure it.</span> Sometimes the answer is zero.</h1>
+        <p class="lede">Replay a strategy over recorded Solana order books at five feed delays (0&thinsp;&middot;&thinsp;50&thinsp;&middot;&thinsp;100&thinsp;&middot;&thinsp;200&thinsp;&middot;&thinsp;400&nbsp;ms) and read the P&amp;L at each. Nothing is sent to any market: every run is a replay.</p>
+        <div class="actions">
+          <a class="button" href="./app/">Open the terminal</a>
+          <a href="https://github.com/quantedgeterminal/QuantEdge-Terminal">Source on GitHub &rarr;</a>
+        </div>
+      </div>
+
+      <figure class="diagram">
+        <svg class="only-wide" viewBox="0 0 560 312" role="img" aria-label="A new book state arrives at the decision point. Delays of 50, 100, 200 and 400 milliseconds all fall inside the previous state, which lasted about 1.5 seconds.">
+          <g stroke="#252a2f">
+            <line x1="20" y1="170" x2="20" y2="190"/><line x1="140" y1="170" x2="140" y2="190"/>
+            <line x1="260" y1="170" x2="260" y2="190"/><line x1="380" y1="170" x2="380" y2="190"/>
+          </g>
+          <text x="146" y="166" fill="#6b767e" font-size="12">slot &asymp; 400 ms</text>
+          <line x1="10" y1="180" x2="550" y2="180" stroke="#8a949c"/>
+          <rect x="50" y="196" width="450" height="30" fill="#1a1e22" stroke="#353b41"/>
+          <text x="62" y="216" fill="#c3cad0">previous book state &middot; lasted ~1.5 s</text>
+          <rect x="500" y="196" width="50" height="30" fill="none" stroke="#00d8d8"/>
+          <text x="508" y="216" fill="#00d8d8">new</text>
+          <text x="50" y="246" fill="#8a949c" text-anchor="middle">&minus;1.5 s</text>
+          <text x="500" y="246" fill="#8a949c" text-anchor="middle">decision</text>
+          <rect x="50" y="40" width="330" height="126" fill="#00d8d8" fill-opacity="0.04"/>
+          <text x="62" y="96" fill="#6b767e" font-size="13">a delay up to ~1.5 s</text>
+          <text x="62" y="114" fill="#6b767e" font-size="13">would still land here</text>
+          <g stroke="#00d8d8" stroke-width="1.5">
+            <line x1="500" y1="180" x2="500" y2="34"/><line x1="485" y1="180" x2="485" y2="64"/>
+            <line x1="470" y1="180" x2="470" y2="94"/><line x1="440" y1="180" x2="440" y2="124"/>
+            <line x1="380" y1="180" x2="380" y2="154"/>
+          </g>
+          <g fill="#00d8d8">
+            <circle cx="500" cy="180" r="3.5"/><circle cx="485" cy="180" r="3"/><circle cx="470" cy="180" r="3"/>
+            <circle cx="440" cy="180" r="3"/><circle cx="380" cy="180" r="3"/>
+          </g>
+          <g fill="#e4e8eb">
+            <text x="508" y="40">0 ms</text>
+            <text x="478" y="70" text-anchor="end">50 ms</text>
+            <text x="463" y="100" text-anchor="end">100 ms</text>
+            <text x="433" y="130" text-anchor="end">200 ms</text>
+            <text x="373" y="160" text-anchor="end">400 ms</text>
+          </g>
+          <text x="10" y="280" fill="#8a949c">0 ms sees the new state.</text>
+          <text x="10" y="302" fill="#8a949c">Every other delay sees the previous one.</text>
+        </svg>
+
+        <svg class="only-narrow" viewBox="0 0 360 330" role="img" aria-label="A new book state arrives at the decision point. Delays of 50, 100, 200 and 400 milliseconds all fall inside the previous state, which lasted about 1.5 seconds.">
+          <g stroke="#252a2f">
+            <line x1="10" y1="170" x2="10" y2="190"/><line x1="90" y1="170" x2="90" y2="190"/>
+            <line x1="170" y1="170" x2="170" y2="190"/><line x1="250" y1="170" x2="250" y2="190"/>
+          </g>
+          <text x="96" y="166" fill="#6b767e" font-size="12">slot &asymp; 400 ms</text>
+          <line x1="4" y1="180" x2="356" y2="180" stroke="#8a949c"/>
+          <rect x="30" y="196" width="300" height="30" fill="#1a1e22" stroke="#353b41"/>
+          <text x="40" y="216" fill="#c3cad0">previous state &middot; ~1.5 s</text>
+          <rect x="330" y="196" width="26" height="30" fill="none" stroke="#00d8d8"/>
+          <text x="30" y="246" fill="#8a949c" text-anchor="start">&minus;1.5 s</text>
+          <text x="356" y="246" fill="#00d8d8" text-anchor="end">new</text>
+          <rect x="30" y="40" width="220" height="126" fill="#00d8d8" fill-opacity="0.04"/>
+          <text x="40" y="96" fill="#6b767e" font-size="13">a delay up to ~1.5 s</text>
+          <text x="40" y="114" fill="#6b767e" font-size="13">would still land here</text>
+          <g stroke="#00d8d8" stroke-width="1.5">
+            <line x1="330" y1="180" x2="330" y2="34"/><line x1="320" y1="180" x2="320" y2="64"/>
+            <line x1="310" y1="180" x2="310" y2="94"/><line x1="290" y1="180" x2="290" y2="124"/>
+            <line x1="250" y1="180" x2="250" y2="154"/>
+          </g>
+          <g fill="#00d8d8">
+            <circle cx="330" cy="180" r="3.5"/><circle cx="320" cy="180" r="3"/><circle cx="310" cy="180" r="3"/>
+            <circle cx="290" cy="180" r="3"/><circle cx="250" cy="180" r="3"/>
+          </g>
+          <g fill="#e4e8eb">
+            <text x="334" y="26" text-anchor="end">0 ms</text>
+            <text x="313" y="70" text-anchor="end">50 ms</text>
+            <text x="303" y="100" text-anchor="end">100 ms</text>
+            <text x="283" y="130" text-anchor="end">200 ms</text>
+            <text x="243" y="160" text-anchor="end">400 ms</text>
+          </g>
+          <text x="4" y="290" fill="#8a949c" font-size="13">0 ms sees the new state.</text>
+          <text x="4" y="312" fill="#8a949c" font-size="13">Every other delay sees the previous one.</text>
+        </svg>
+
+        <figcaption>On Manifest a book state lasts about 1.5&nbsp;s, and the strategy decides the moment a new one arrives. Every delay from 50 to 400&nbsp;ms sees the same earlier state.</figcaption>
+      </figure>
+    </section>
+
+    <section class="block" aria-labelledby="screens">
+      <h2 id="screens">Three screens</h2>
+      <div class="prose">
+        <p><span class="mono accent">Run.</span> Pick a market, a recorded period and a preset, tune its parameters, run it at five delays, and read &ldquo;delay &rarr; P&amp;L&rdquo; plus the cost of 100&nbsp;ms.</p>
+        <p><span class="mono accent">Terminal.</span> The live book for one market, with the measured lag between two real delivery channels, the age of the last update and a staleness mark.</p>
+        <p><span class="mono accent">Compare.</span> The same book arriving over two real channels side by side, one row per update, with the distribution of the difference. An emulated lane appears only when you type its profile, and it is labelled as emulated.</p>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="how">
+      <h2 id="how">How it measures</h2>
+      <div class="prose">
+        <ol class="steps">
+          <li><span>Two independent RPC providers subscribe to the same on-chain order books. Every book state is stored with the time each channel received it.</span></li>
+          <li><span>Latency is the difference between two real channels, never a distance from an emulated one.</span></li>
+          <li><span>The engine replays the strategy against the stored books at each delay. It has no clock, no I/O and no randomness, and money is kept in integer units, so a run repeats byte for byte.</span></li>
+          <li><span>If a delay is finer than the data, the result says so: each row reports how often its view actually moved. A run over incomplete data refuses to start and names the gap.</span></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="found">
+      <div>
+        <p class="figure">10 of 10</p>
+        <p class="figure-note">windows where P&amp;L at 0&nbsp;ms was lower than at 400&nbsp;ms</p>
+      </div>
+      <div class="prose">
+        <h2 id="found" class="label">What it found on Manifest</h2>
+        <p>Over 15.57 hours of recorded books on three Manifest markets (cbBTC, RENDER and USDT, each against USDC), the three shipped strategies did not make more money with a faster feed. The result held across 180 configurations: five order sizes from 100 to 1,000,000 USDC, three slippage tolerances, two delay grids, two window sets, plus a fourth strategy built so that speed would be an edge.</p>
+        <p>The mechanism is two measured numbers. A book state lasts about 1.5&nbsp;s, so every non-zero delay sees the same earlier state. Over that horizon the market mean-reverts, and average slippage at 400&nbsp;ms is <span class="mono">&minus;1 to &minus;9&nbsp;bp</span>: the later order fills better. The 0&nbsp;ms row is the execution model&rsquo;s baseline, where the strategy fills against the very book it read; no trader can occupy it.</p>
+        <div class="scope">
+          <p class="label">What this does not say</p>
+          <p>Manifest, 11&ndash;12 September 2026, taker strategies, this execution model. It does not say that speed fails to pay on Solana.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="calibration">
+      <h2 id="calibration">Is the instrument right?</h2>
+      <div class="prose">
+        <dl class="rows">
+          <dt>A 150 ms delay injected into one channel</dt><dd>measured 151 ms</dd>
+          <dt>Repeated runs with identical inputs</dt><dd>10 of 10 byte-identical</dd>
+          <dt>Runs over a period with a gap</dt><dd>10 of 10 refused, gap named</dd>
+          <dt>6-hour run at five delays, hosted instance</dt><dd>p95 9.5 s</dd>
+          <dt>Terminal first screen, Lighthouse 3G profile</dt><dd>1.60 s</dd>
+          <dt>Recorded order books</dt><dd>45.9 market-hours in 131.6 MB</dd>
+        </dl>
+        <p class="after-rows">Nine of the ten targets set before the build were met. The tenth expected latency to cost money on this venue; the section above is what was measured instead.</p>
+        <figure class="shot">
+          <img src="assets/result-render.webp" width="1265" height="1070" loading="lazy" alt="Result screen of a run: P&amp;L at 0, 50, 100, 200 and 400 ms as a ladder of bars and a table. The 0 ms row is lower than the other four, which are within a few USDC of each other.">
+          <figcaption>One run on the reference period in the live app: RENDER/USDC, Imbalance momentum with default parameters, 11 September 17:31 to 12 September 09:05 UTC. The preset loses at every delay; the only step that moves P&amp;L is 0 to 50&nbsp;ms. The &ldquo;cost of 100&nbsp;ms&rdquo; at the top is that one step spread across the 400&nbsp;ms span, not a slope the data resolves.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="limits">
+      <h2 id="limits">What it does not do</h2>
+      <ul class="limits">
+        <li>No orders, no transactions, no wallet, no custody. Execution exists only inside a replay.</li>
+        <li>No accounts or sign-in. Saved strategies hang on a random session key; clearing site data loses them.</li>
+        <li>No user code and no strategy language. Three presets with parameters.</li>
+        <li>No AMM pools as a book source. Only on-chain order books where the book is account state.</li>
+        <li>No DoubleZero or vendor latency figures. The fast lane is emulated and labelled as such.</li>
+        <li>No absolute &ldquo;time since the chain event&rdquo;. Channels are measured against each other.</li>
+        <li>Takers only. Makers cannot be modelled honestly without a trade tape.</li>
+        <li>No history before the collector started.</li>
+      </ul>
+    </section>
+
+    <section class="block" aria-labelledby="questions">
+      <h2 id="questions">Questions</h2>
+      <dl class="faq">
+        <dt>Does this mean fast data is worthless on Solana?</dt>
+        <dd>No. It says that on Manifest, over these 15.57 hours, for taker strategies under this execution model, 0 to 400&nbsp;ms did not pay. Your strategy on your data is the question the terminal is for.</dd>
+        <dt>Why do 50, 100 and 200 ms give the same row?</dt>
+        <dd>The book changes about once every 1.5&nbsp;s, and at most once per slot. A delay shorter than that gap sees the same state. The result reports it instead of hiding it.</dd>
+        <dt>Where does the data come from?</dt>
+        <dd>Two independent RPC providers subscribed to Manifest market accounts, recorded continuously. Gaps are recorded as gaps.</dd>
+        <dt>Do I need an account?</dt>
+        <dd>No. Open the terminal and press Run.</dd>
+        <dt>Is the fast lane DoubleZero?</dt>
+        <dd>No. The product has no access to it; any fast lane is a typed profile and is marked as emulated.</dd>
+      </dl>
+    </section>
+
+  </main>
+
+  <footer>
+    <span class="mono">QuantEdge Terminal</span>
+    <span>Every figure on this page comes from the repository&rsquo;s measurements.</span>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="https://github.com/quantedgeterminal/QuantEdge-Terminal">Source</a>
+      <a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases">Releases</a>
+      <a href="./app/">Open the terminal</a>
+    </nav>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -1,6 +1,8 @@
-# Web app → GitHub Pages. A project site lives under /<repo>/ unless
-# PAGES_BASE_PATH (repository variable) says otherwise. VITE_API_URL is the
-# Render service URL, set as a repository variable — it is public in the bundle anyway.
+# Landing + web app → one GitHub Pages artifact. The static landing (apps/landing)
+# is the site root, /<repo>/; the app lives under /<repo>/app/ unless
+# PAGES_BASE_PATH (repository variable, the app's base path) says otherwise.
+# VITE_API_URL is the Render service URL, set as a repository variable — it is
+# public in the bundle anyway.
 name: pages
 on:
   push:
@@ -26,11 +28,18 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @quantedge/web build
         env:
-          BASE_PATH: ${{ vars.PAGES_BASE_PATH || format('/{0}/', github.event.repository.name) }}
+          BASE_PATH: ${{ vars.PAGES_BASE_PATH || format('/{0}/app/', github.event.repository.name) }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+      # Pages serves a custom 404 only from the site root, so the root 404.html
+      # is the app shell: a deep link such as /app/runs/<id> still boots the app.
+      - run: |
+          mkdir -p site
+          cp -r apps/landing/. site/
+          cp -r apps/web/dist site/app
+          cp apps/web/dist/404.html site/404.html
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/web/dist
+          path: site
   deploy:
     needs: build
     runs-on: ubuntu-latest

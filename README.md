@@ -123,10 +123,12 @@ project site; the database stays on Supabase.
 - `render.yaml` is a Blueprint: Render → New → Blueprint → this repo, then fill
   the `sync: false` secrets in the dashboard. `WEB_ORIGIN` is the Pages origin
   (`https://<owner>.github.io`), which turns on CORS for exactly that origin.
-- `.github/workflows/pages.yml` builds `apps/web` with `BASE_PATH=/<repo>/` and
+- `.github/workflows/pages.yml` builds `apps/web` with `BASE_PATH=/<repo>/app/` and
   `VITE_API_URL` (repository variable → the service URL exactly as Render shows
-  it, suffix included, e.g. `https://quantedge-api-xxxx.onrender.com`) and deploys it; a
-  `404.html` copy of the shell keeps deep links working.
+  it, suffix included, e.g. `https://quantedge-api-xxxx.onrender.com`), puts the
+  static landing page from `apps/landing` at the site root and the app under
+  `/app/`, and deploys both as one artifact. Pages serves a custom 404 only from
+  the site root, so the root `404.html` is the app shell and deep links keep working.
 - `.github/workflows/keepalive.yml` and `keepalive-b.yml` hit `/health`: a free
   service sleeps after 15 minutes of silence, and a sleeping collector is a gap
   in the dataset. GitHub runs a `*/5` schedule every 12-20 minutes in practice,

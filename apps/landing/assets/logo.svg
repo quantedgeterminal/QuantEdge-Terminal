@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-width="2.2" role="img" aria-labelledby="t"><title id="t">QuantEdge Terminal</title>
+  <g stroke="#E4E8EB">
+    <circle cx="50" cy="50" r="10.2"/><circle cx="50" cy="50" r="14.4"/><circle cx="50" cy="50" r="18.5"/>
+    <circle cx="50" cy="50" r="22.6"/><circle cx="50" cy="50" r="26.8"/><circle cx="50" cy="50" r="30.9"/>
+    <path d="M39.3 17A34.7 34.7 0 0 1 60.7 17M44.6 11.3A39.1 39.1 0 0 1 55.4 11.3"/>
+    <path d="M39.3 83A34.7 34.7 0 0 0 60.7 83M44.6 88.7A39.1 39.1 0 0 0 55.4 88.7"/>
+    <path d="M17 39.3A34.7 34.7 0 0 0 17 60.7M11.3 44.6A39.1 39.1 0 0 0 11.3 55.4"/>
+    <path d="M83 39.3A34.7 34.7 0 0 1 83 60.7M88.7 44.6A39.1 39.1 0 0 1 88.7 55.4"/>
+  </g>
+  <g stroke="#00D8D8">
+    <circle cx="50" cy="50" r="6.1"/>
+    <path d="M48.8 6.6H51.2M48.8 93.4H51.2M6.6 48.8V51.2M93.4 48.8V51.2"/>
+  </g>
+</svg>
