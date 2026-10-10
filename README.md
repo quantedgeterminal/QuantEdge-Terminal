@@ -179,3 +179,7 @@ Saved strategies and the run quota hang on a random key the server issues and
 the browser keeps. It carries no personal data. Clearing site data or switching
 browsers starts with an empty list; nothing can be recovered — the screens say
 so where they offer to save.
+
+## License
+
+The code is licensed under the [Apache License 2.0](LICENSE).

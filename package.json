@@ -2,6 +2,7 @@
   "name": "quantedge-terminal",
   "version": "0.0.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "A terminal that measures the cost of market-data latency on historical Solana order books",
   "packageManager": "pnpm@9.15.0",
   "engines": {
