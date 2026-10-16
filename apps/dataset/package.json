@@ -1,0 +1,23 @@
+{
+  "name": "@quantedge/dataset",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "export": "node --env-file=../../.env --max-old-space-size=4096 src/export.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@quantedge/shared": "workspace:*",
+    "hyparquet-writer": "0.16.10",
+    "postgres": "3.4.9",
+    "zod": "4.6.2"
+  },
+  "devDependencies": {
+    "hyparquet": "1.31.1",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}

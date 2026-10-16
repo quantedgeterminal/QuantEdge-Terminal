@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manifest order books dataset · QuantEdge Terminal</title>
+  <meta name="description" content="15.57 hours of recorded Manifest order books on Solana: 106,440 book states across three markets, top 15 levels per side, with the time each state reached two independent RPC providers. Parquet and CSV, CC BY 4.0.">
+  <meta name="theme-color" content="#0b0d0f">
+  <link rel="canonical" href="https://quantedgeterminal.github.io/QuantEdge-Terminal/dataset/">
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="QuantEdge Terminal">
+  <meta property="og:title" content="Manifest order books dataset">
+  <meta property="og:description" content="106,440 recorded book states on three Manifest markets, with per-channel arrival times. Parquet and CSV, CC BY 4.0.">
+  <meta property="og:url" content="https://quantedgeterminal.github.io/QuantEdge-Terminal/dataset/">
+  <meta property="og:image" content="https://quantedgeterminal.github.io/QuantEdge-Terminal/assets/og.png">
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    .intro { padding: 72px 0 96px; }
+    .intro h1 { max-width: 22ch; }
+    .intro .rows { margin-top: 40px; }
+    .block > * { min-width: 0; } /* a grid item would otherwise grow to its widest table or code line */
+    .scroll { overflow-x: auto; max-width: 100%; }
+    .fields { border-collapse: collapse; width: 100%; font-size: 15px; }
+    .fields th, .fields td { text-align: left; vertical-align: top; padding: 10px 16px 10px 0; border-bottom: 1px solid var(--hairline); }
+    .fields th { font-family: var(--mono); font-weight: 400; font-size: 13px; color: var(--muted); }
+    .fields td:first-child, .fields td.mono { font-family: var(--mono); white-space: nowrap; }
+    .fields td.num { font-family: var(--mono); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .table-name { margin: 40px 0 6px; font-family: var(--mono); font-size: 17px; font-weight: 500; }
+    .table-name:first-child { margin-top: 0; }
+    .table-note { margin: 0 0 12px; max-width: 62ch; color: var(--ink-soft); font-size: 15px; }
+    pre { margin: 18px 0; padding: 16px 18px; overflow-x: auto; background: var(--raised); border: 1px solid var(--hairline); font-family: var(--mono); font-size: 13.5px; line-height: 1.55; color: var(--ink-soft); }
+    code { font-family: var(--mono); font-size: 0.92em; }
+    .prose ul { margin: 0 0 18px; padding-left: 20px; max-width: 62ch; }
+    .prose li { margin-bottom: 8px; }
+    @media (max-width: 720px) {
+      .intro { padding: 40px 0 64px; }
+      .fields { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="bar">
+    <a class="brand mono" href="../" aria-label="QuantEdge Terminal home">
+      <img src="../assets/logo.svg" width="36" height="36" alt="">
+      <span>QuantEdge Terminal</span>
+    </a>
+    <nav class="mono" aria-label="Primary">
+      <a class="muted" href="https://github.com/quantedgeterminal/QuantEdge-Terminal">Source</a>
+      <a href="../app/">Open the terminal &rarr;</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <section class="intro" aria-labelledby="title">
+      <p class="eyebrow mono">Open dataset &middot; dataset-v1 &middot; CC BY 4.0</p>
+      <h1 id="title">Manifest order books, 11&ndash;12 September 2026</h1>
+      <p class="lede">Every book state of three Manifest markets on Solana over 15.57 hours, top 15 price levels per side, and the moment each state reached each of two independent RPC providers. This is the period every measurement on the <a href="../">main page</a> was made on, so those results can be checked from outside.</p>
+      <dl class="rows">
+        <dt>Markets</dt><dd>cbBTC/USDC &middot; RENDER/USDC &middot; USDT/USDC</dd>
+        <dt>Window (UTC)</dt><dd>2026-09-11 17:31:00.800740 &rarr; 2026-09-12 09:05:00</dd>
+        <dt>Book states</dt><dd>106,440</dd>
+        <dt>Price levels (long format)</dt><dd>3,193,200</dd>
+        <dt>Channel arrivals</dt><dd>212,108</dd>
+        <dt>Gaps inside the window</dt><dd>none</dd>
+        <dt>Formats</dt><dd>Parquet &middot; CSV (gzip)</dd>
+      </dl>
+    </section>
+
+    <section class="block" aria-labelledby="download">
+      <h2 id="download">Download</h2>
+      <div class="prose">
+        <p>The files are assets of the <a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/tag/dataset-v1">dataset-v1 release</a>. Each table comes in both formats with the same rows in the same order. Take Parquet if your tools read it; it keeps types, including exact 38-digit prices.</p>
+        <div class="scroll">
+          <table class="fields">
+            <thead><tr><th>Table</th><th>Parquet</th><th>CSV (gzip)</th></tr></thead>
+            <tbody>
+              <tr><td>levels</td><td class="num"><a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/download/dataset-v1/quantedge-dataset-v1-levels.parquet">5.8 MB</a></td><td class="num"><a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/download/dataset-v1/quantedge-dataset-v1-levels.csv.gz">11.4 MB</a></td></tr>
+              <tr><td>states</td><td class="num"><a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/download/dataset-v1/quantedge-dataset-v1-states.parquet">8.2 MB</a></td><td class="num"><a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/download/dataset-v1/quantedge-dataset-v1-states.csv.gz">5.3 MB</a></td></tr>
+              <tr><td>arrivals</td><td class="num"><a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/download/dataset-v1/quantedge-dataset-v1-arrivals.parquet">1.9 MB</a></td><td class="num"><a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/download/dataset-v1/quantedge-dataset-v1-arrivals.csv.gz">1.8 MB</a></td></tr>
+              <tr><td>markets</td><td class="num"><a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/download/dataset-v1/quantedge-dataset-v1-markets.parquet">1.8 KB</a></td><td class="num"><a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/download/dataset-v1/quantedge-dataset-v1-markets.csv.gz">0.4 KB</a></td></tr>
+              <tr><td>channels</td><td class="num"><a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/download/dataset-v1/quantedge-dataset-v1-channels.parquet">0.8 KB</a></td><td class="num"><a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/download/dataset-v1/quantedge-dataset-v1-channels.csv.gz">0.1 KB</a></td></tr>
+              <tr><td>coverage</td><td class="num"><a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/download/dataset-v1/quantedge-dataset-v1-coverage.parquet">0.8 KB</a></td><td class="num"><a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/download/dataset-v1/quantedge-dataset-v1-coverage.csv.gz">0.1 KB</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="after-rows"><a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/download/dataset-v1/SHA256SUMS">SHA256SUMS</a> lists a checksum for every file. The export is deterministic: the same rows always give the same bytes.</p>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="fields">
+      <h2 id="fields">Tables and fields</h2>
+      <div class="prose">
+        <p>No field is ever empty. Timestamps are UTC with microsecond precision. Prices and sizes are integers in the smallest on-chain units, exactly as the market account stores them; the next section converts them.</p>
+
+        <h3 class="table-name" id="t-levels">levels</h3>
+        <p class="table-note">One row per book state &times; side &times; level. Join to <code>states</code> on <code>state_id</code>.</p>
+        <div class="scroll">
+          <table class="fields">
+            <thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td>state_id</td><td class="mono">int64</td><td>The book state this level belongs to.</td></tr>
+              <tr><td>market_id</td><td class="mono">int32</td><td>The market, repeated from <code>states</code> so a single market can be filtered without a join.</td></tr>
+              <tr><td>side</td><td class="mono">string</td><td><code>bid</code> or <code>ask</code>.</td></tr>
+              <tr><td>level</td><td class="mono">int32</td><td>0 is the best price on its side, then 1, 2&hellip; up to 14. Bids fall and asks rise with the level.</td></tr>
+              <tr><td>price</td><td class="mono">decimal(38,0)</td><td>Quote atoms per base atom, multiplied by 10<sup>18</sup>. Too large for int64: about 7.7&times;10<sup>20</sup> at the cbBTC touch.</td></tr>
+              <tr><td>size</td><td class="mono">int64</td><td>Resting size at this price in base atoms, summed over all orders at the price.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="table-name" id="t-states">states</h3>
+        <p class="table-note">One row per distinct book state. A new state is recorded when the market account changes, so the time between rows is the time the book stood still.</p>
+        <div class="scroll">
+          <table class="fields">
+            <thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td>state_id</td><td class="mono">int64</td><td>Identifier of the state. Unique, increasing in order of recording, not contiguous.</td></tr>
+              <tr><td>market_id</td><td class="mono">int32</td><td>The market; see <code>markets</code>.</td></tr>
+              <tr><td>slot</td><td class="mono">int64</td><td>The Solana slot the account update was reported for.</td></tr>
+              <tr><td>state_hash</td><td class="mono">string</td><td>SHA-256 of the raw account bytes, hex. With <code>slot</code> it identifies the same state across channels.</td></tr>
+              <tr><td>first_seen_at</td><td class="mono">timestamp</td><td>The earliest arrival of this state over any channel, equal to the minimum of its <code>arrivals.received_at</code>.</td></tr>
+              <tr><td>bid_levels</td><td class="mono">int32</td><td>How many bid levels the state has in <code>levels</code> (at most 15).</td></tr>
+              <tr><td>ask_levels</td><td class="mono">int32</td><td>How many ask levels the state has in <code>levels</code> (at most 15).</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="table-name" id="t-arrivals">arrivals</h3>
+        <p class="table-note">One row per state per channel that delivered it. A state missing a row for a channel was not delivered by that channel.</p>
+        <div class="scroll">
+          <table class="fields">
+            <thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td>state_id</td><td class="mono">int64</td><td>The state that arrived.</td></tr>
+              <tr><td>channel_id</td><td class="mono">int32</td><td>The channel it arrived over; see <code>channels</code>.</td></tr>
+              <tr><td>received_at</td><td class="mono">timestamp</td><td>When the collector received it over that channel.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="table-name" id="t-markets">markets</h3>
+        <div class="scroll">
+          <table class="fields">
+            <thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td>market_id</td><td class="mono">int32</td><td>Identifier used by the other tables.</td></tr>
+              <tr><td>venue</td><td class="mono">string</td><td><code>manifest</code>.</td></tr>
+              <tr><td>address</td><td class="mono">string</td><td>The market account on Solana mainnet; the book is this account&rsquo;s state.</td></tr>
+              <tr><td>base_symbol</td><td class="mono">string</td><td>Base token symbol, e.g. <code>cbBTC</code>.</td></tr>
+              <tr><td>quote_symbol</td><td class="mono">string</td><td>Quote token symbol, <code>USDC</code> for all three.</td></tr>
+              <tr><td>base_mint</td><td class="mono">string</td><td>Base token mint address.</td></tr>
+              <tr><td>quote_mint</td><td class="mono">string</td><td>Quote token mint address.</td></tr>
+              <tr><td>base_decimals</td><td class="mono">int32</td><td>Decimals of the base token.</td></tr>
+              <tr><td>quote_decimals</td><td class="mono">int32</td><td>Decimals of the quote token.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="table-name" id="t-channels">channels</h3>
+        <div class="scroll">
+          <table class="fields">
+            <thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td>channel_id</td><td class="mono">int32</td><td>Identifier used by <code>arrivals</code>.</td></tr>
+              <tr><td>name</td><td class="mono">string</td><td>Channel name: <code>helius</code>, <code>alchemy</code>.</td></tr>
+              <tr><td>kind</td><td class="mono">string</td><td>Always <code>real</code>: emulated channels are never exported.</td></tr>
+              <tr><td>provider</td><td class="mono">string</td><td>The RPC provider behind the channel.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="table-name" id="t-coverage">coverage</h3>
+        <div class="scroll">
+          <table class="fields">
+            <thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td>market_id</td><td class="mono">int32</td><td>The market.</td></tr>
+              <tr><td>from_ts</td><td class="mono">timestamp</td><td>Start of the gap-free recording window.</td></tr>
+              <tr><td>to_ts</td><td class="mono">timestamp</td><td>End of the window.</td></tr>
+              <tr><td>state_count</td><td class="mono">int32</td><td>Number of states of this market inside the window.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="units">
+      <h2 id="units">From atoms to prices</h2>
+      <div class="prose">
+        <p>With <code>b</code> and <code>q</code> the base and quote decimals from <code>markets</code>:</p>
+        <pre>price in quote per base = price / 10^18 &times; 10^(b &minus; q)
+size in base tokens     = size / 10^b</pre>
+        <p>For cbBTC/USDC (<code>b</code>&nbsp;=&nbsp;8, <code>q</code>&nbsp;=&nbsp;6) a <code>price</code> of 777037910000000000000 is 77,703.791 USDC per cbBTC. Keep the raw integers for any sum or difference and convert at the end: that is how the terminal stays exact.</p>
+        <p>Deep levels can sit far from the market: some cbBTC asks rest at 10<sup>8</sup> USDC and above, and their <code>price</code> runs to 27 digits. In CSV, <code>price</code> is a plain integer. A reader that guesses types turns it into a float and loses the last digits; read it as a string or a decimal (in pandas, <code>dtype={"price": str}</code>).</p>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="start">
+      <h2 id="start">Quick start</h2>
+      <div class="prose">
+        <p>DuckDB reads the files where they lie. The best bid and ask of cbBTC over time, in USDC:</p>
+        <pre>SELECT s.first_seen_at, l.side,
+       l.price / 1e18 * 10 ^ (m.base_decimals - m.quote_decimals) AS price_usdc,
+       l.size / 10 ^ m.base_decimals AS size_base
+FROM 'quantedge-dataset-v1-levels.parquet' l
+JOIN 'quantedge-dataset-v1-states.parquet' s USING (state_id)
+JOIN 'quantedge-dataset-v1-markets.parquet' m ON m.market_id = l.market_id
+WHERE m.base_symbol = 'cbBTC' AND l.level = 0
+ORDER BY s.first_seen_at, l.side DESC;</pre>
+        <p>How far each channel lagged behind the first arrival, at the 95th percentile:</p>
+        <pre>SELECT c.name, count(*) AS states,
+       quantile_cont(epoch_us(a.received_at) - epoch_us(s.first_seen_at), 0.95) / 1000 AS p95_lag_ms
+FROM 'quantedge-dataset-v1-arrivals.parquet' a
+JOIN 'quantedge-dataset-v1-states.parquet' s USING (state_id)
+JOIN 'quantedge-dataset-v1-channels.parquet' c USING (channel_id)
+GROUP BY c.name;</pre>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="provenance">
+      <h2 id="provenance">How it was recorded</h2>
+      <div class="prose">
+        <ul>
+          <li>One collector held an <code>accountSubscribe</code> WebSocket subscription per market at each of two RPC providers, Helius and Alchemy, at <code>confirmed</code> commitment with base64 encoding.</li>
+          <li>Each update was keyed by <code>(slot, SHA-256 of the account bytes)</code> before decoding, so the same state from both providers is one row in <code>states</code> and two rows in <code>arrivals</code>.</li>
+          <li>The book was decoded from the Manifest market account, aggregated by price and cut to the best 15 levels per side.</li>
+          <li><code>received_at</code> comes from the clock of the single host that ran the collector. Differences between channels are measurements; the absolute time since the on-chain event is not, and is not in the data.</li>
+          <li>The collector also records the coverage it had: the window is one segment per market with no gap, which is why it starts at an odd microsecond.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="not">
+      <h2 id="not">What it is not</h2>
+      <ul class="limits">
+        <li>Not the full book. The best 15 levels per side, aggregated by price; individual orders and their owners are not included.</li>
+        <li>Not a trade tape. Fills are not recorded, only the book states before and after.</li>
+        <li>Not every Solana slot. A row appears when the account changed and a provider reported it.</li>
+        <li>Not a provider ranking. Two providers, one host, one night; the lag depends on all three.</li>
+      </ul>
+    </section>
+
+    <section class="block" aria-labelledby="licence">
+      <h2 id="licence">Licence and citation</h2>
+      <div class="prose">
+        <p>The dataset is licensed under <a href="https://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International (CC BY 4.0)</a>: use it for anything, including commercial work, and credit the source. The code that recorded and exported it is under the <a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/blob/main/LICENSE">Apache License 2.0</a>.</p>
+        <pre>QuantEdge Terminal. Manifest order books, 11–12 September 2026 (dataset-v1).
+https://quantedgeterminal.github.io/QuantEdge-Terminal/dataset/. CC BY 4.0.</pre>
+        <p>The export is <a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/tree/main/apps/dataset">apps/dataset</a> in the repository. It refuses a window with a gap in coverage and any channel that is not real.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <span class="mono">QuantEdge Terminal</span>
+    <span>Counts and sizes on this page are read from the published files.</span>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="https://github.com/quantedgeterminal/QuantEdge-Terminal">Source</a>
+      <a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/tag/dataset-v1">Release</a>
+      <a href="../app/">Open the terminal</a>
+    </nav>
+  </footer>
+
+</div>
+</body>
+</html>

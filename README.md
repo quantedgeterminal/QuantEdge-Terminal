@@ -79,6 +79,8 @@ packages/db         Drizzle schema + migrations (Postgres / Supabase)
 apps/collector      two WebSocket subscriptions per market → book_updates, arrivals, coverage
 apps/api            Hono: markets, coverage, runs, strategies, latency, arrivals, SSE stream
 apps/web            React 19 + Vite 7: run, result, terminal, compare screens
+apps/dataset        read-only export of a recorded window → Parquet + CSV.gz + SHA256SUMS
+apps/landing        static landing page and the dataset field page, served by Pages
 ```
 
 Stack: pnpm workspaces · TypeScript 5.9 strict · Biome 2 · Vitest 3 · Hono 4 ·
@@ -180,6 +182,27 @@ the browser keeps. It carries no personal data. Clearing site data or switching
 browsers starts with an empty list; nothing can be recovered — the screens say
 so where they offer to save.
 
+## Open dataset
+
+The reference period every measurement above was made on — three Manifest
+markets, 2026-09-11 17:31 → 2026-09-12 09:05 UTC, 106,440 book states, top 15
+levels per side, and each state's arrival time over both providers — is
+published as assets of the `dataset-v1` release, in Parquet and gzipped CSV.
+Fields, units and provenance are described on the
+[dataset page](https://quantedgeterminal.github.io/QuantEdge-Terminal/dataset/).
+
+The export is deterministic, so the published `SHA256SUMS` can be re-made:
+
+```
+pnpm --filter @quantedge/dataset export \
+  --from 2026-09-11T17:31:00.800740Z --to 2026-09-12T09:05:00Z \
+  --name quantedge-dataset-v1 --out dist/dataset-v1
+```
+
+It reads `DATABASE_URL`, runs in one read-only transaction, and refuses a window
+with a gap in coverage or a channel that is not real.
+
 ## License
 
-The code is licensed under the [Apache License 2.0](LICENSE).
+The code is licensed under the [Apache License 2.0](LICENSE). The dataset is
+licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
