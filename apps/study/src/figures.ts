@@ -12,7 +12,7 @@ const en = (digits: number) =>
 /** A signed amount: the page writes the minus sign as U+2212, as typeset text does. */
 export function fmt(x: number, digits: number): string {
   const s = en(digits).format(Math.abs(x))
-  return x < 0 && s !== en(digits).format(0) ? `−${s}` : s
+  return x < 0 && s !== en(digits).format(0) ? `\u2212${s}` : s
 }
 
 function p(x: number): string {
@@ -42,13 +42,14 @@ function effectBp(m: Measured): number | null {
 
 function describe(out: Record<string, string>, key: string, m: Measured): void {
   out[`${key}.mean`] = fmt(m.meanEffect, 2)
-  out[`${key}.signs`] = `${m.sign.negative} / ${m.sign.positive} / ${m.sign.ties}`
+  out[`${key}.signs`] =
+    `${m.sign.negative}\u2009/\u2009${m.sign.positive}\u2009/\u2009${m.sign.ties}`
   out[`${key}.p`] = p(m.sign.p)
   out[`${key}.sd3`] = fmt(m.threeSigmaDiff, 2)
   out[`${key}.base3`] = fmt(m.threeSigmaBase, 2)
   out[`${key}.pnl0`] = fmt(m.pnlByLevel[0] ?? 0, 2)
   const bp = effectBp(m)
-  out[`${key}.bp`] = bp === null ? '—' : fmt(bp, 3)
+  out[`${key}.bp`] = bp === null ? '\u2014' : fmt(bp, 3)
 }
 
 export function figures(r: StudyResult): Record<string, string> {
@@ -130,9 +131,9 @@ export function figures(r: StudyResult): Record<string, string> {
 
   for (const g of r.gridSlope) {
     const key = `slope.${g.market}.${short[g.strategy]}`
-    out[`${key}.narrow`] = g.narrow ? fmt(g.narrow.cost, 2) : '—'
-    out[`${key}.wide`] = g.wide ? fmt(g.wide.cost, 2) : '—'
-    out[`${key}.wideTo`] = g.wide ? en(0).format(g.wide.toMs) : '—'
+    out[`${key}.narrow`] = g.narrow ? fmt(g.narrow.cost, 2) : '\u2014'
+    out[`${key}.wide`] = g.wide ? fmt(g.wide.cost, 2) : '\u2014'
+    out[`${key}.wideTo`] = g.wide ? en(0).format(g.wide.toMs) : '\u2014'
   }
   out['slope.identical'] = String(r.gridSlope.filter((g) => g.subStateLevelsIdentical).length)
   out['slope.count'] = String(r.gridSlope.length)

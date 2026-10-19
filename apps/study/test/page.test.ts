@@ -9,16 +9,15 @@ import type { StudyResult } from '../src/study.ts'
  * that differs, or that names nothing the run produces.
  */
 const page = readFileSync(new URL('../../landing/research/index.html', import.meta.url), 'utf8')
-const result: StudyResult = JSON.parse(
-  readFileSync(new URL('../results/dataset-v1.json', import.meta.url), 'utf8'),
-)
+const raw = readFileSync(new URL('../results/dataset-v1.json', import.meta.url), 'utf8')
+const result: StudyResult = JSON.parse(raw)
 const figs = figures(result)
 
 const entities: Record<string, string> = {
-  minus: '−',
-  thinsp: ' ',
-  mdash: '—',
-  nbsp: ' ',
+  minus: '\u2212',
+  thinsp: '\u2009',
+  mdash: '\u2014',
+  nbsp: '\u00a0',
   amp: '&',
   lt: '<',
 }
@@ -53,6 +52,10 @@ describe('published results', () => {
   it('has no unfilled order at zero delay, by construction of the execution model', () => {
     const all = [...result.baseline, ...result.sweep, ...result.control]
     expect(all.every((m) => m.unfilledAt0 === 0)).toBe(true)
+  })
+
+  it('is byte for byte what the study writes, so a rerun can be compared by checksum', () => {
+    expect(raw).toBe(`${JSON.stringify(result, null, 2)}\n`)
   })
 
   it('covers every market, preset, size and limit of the sweep', () => {
