@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Does speed pay on a Solana order book? · QuantEdge Terminal</title>
+  <meta name="description" content="A measurement on 15.57 hours of recorded Manifest order books: at a 1.5-second book grain a faster feed did not make taker strategies more money. Method, limits, and the code that reproduces every number from the open dataset.">
+  <meta name="theme-color" content="#0b0d0f">
+  <link rel="canonical" href="https://quantedgeterminal.github.io/QuantEdge-Terminal/research/">
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="QuantEdge Terminal">
+  <meta property="og:title" content="Does speed pay on a Solana on-chain order book?">
+  <meta property="og:description" content="Not at a 1.5-second book grain. Measured on 106,440 recorded Manifest book states; every number reproduces from the open dataset with one command.">
+  <meta property="og:url" content="https://quantedgeterminal.github.io/QuantEdge-Terminal/research/">
+  <meta property="og:image" content="https://quantedgeterminal.github.io/QuantEdge-Terminal/assets/og.png">
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    .intro { padding: 72px 0 96px; }
+    .intro h1 { max-width: 24ch; }
+    .intro .rows { margin-top: 40px; }
+    .block > * { min-width: 0; } /* a grid item would otherwise grow to its widest table or code line */
+    .scroll { overflow-x: auto; max-width: 100%; }
+    .fields { border-collapse: collapse; width: 100%; font-size: 15px; }
+    .fields th, .fields td { text-align: left; vertical-align: top; padding: 10px 16px 10px 0; border-bottom: 1px solid var(--hairline); }
+    .fields th { font-family: var(--mono); font-weight: 400; font-size: 13px; color: var(--muted); }
+    .fields td.num, .fields th.num { text-align: right; white-space: nowrap; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .fields th.num { white-space: normal; }
+    .fields td.num { padding-left: 12px; }
+    .fields tr.group td { padding-top: 22px; font-family: var(--mono); color: var(--muted); font-size: 13px; }
+    .table-note { margin: 12px 0 0; max-width: 62ch; color: var(--ink-soft); font-size: 15px; }
+    pre { margin: 18px 0; padding: 16px 18px; overflow-x: auto; background: var(--raised); border: 1px solid var(--hairline); font-family: var(--mono); font-size: 13.5px; line-height: 1.55; color: var(--ink-soft); }
+    code { font-family: var(--mono); font-size: 0.92em; }
+    .prose ul { margin: 0 0 18px; padding-left: 20px; max-width: 62ch; }
+    .prose li { margin-bottom: 8px; }
+    .prose h3 { margin: 32px 0 10px; font-size: 17px; font-weight: 500; }
+    .prose h3:first-child { margin-top: 0; }
+    @media (max-width: 720px) {
+      .intro { padding: 40px 0 64px; }
+      .fields { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="bar">
+    <a class="brand mono" href="../" aria-label="QuantEdge Terminal home">
+      <img src="../assets/logo.svg" width="36" height="36" alt="">
+      <span>QuantEdge Terminal</span>
+    </a>
+    <nav class="mono" aria-label="Primary">
+      <a class="muted" href="https://github.com/quantedgeterminal/QuantEdge-Terminal">Source</a>
+      <a href="../app/">Open the terminal &rarr;</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <section class="intro" aria-labelledby="title">
+      <p class="eyebrow mono">Research &middot; measured on dataset-v1</p>
+      <h1 id="title">Does speed pay on a Solana on-chain order book?</h1>
+      <p class="lede">Not at a 1.5-second book grain. On the two Manifest markets whose book changes about every 1.5&nbsp;seconds, a taker strategy with a zero-delay feed made <em>less</em> than the same strategy 400&nbsp;ms late. On the third market, whose book changes twice as often, the faster trader lost slightly less &mdash; a consistent difference too small to trade on. What follows is the method, why the data cannot see finer than one book state, and the code that reproduces every number on this page.</p>
+      <dl class="rows">
+        <dt>Data</dt><dd><a href="../dataset/">dataset-v1</a>: <span data-fig="states">106,440</span> book states, 15.57&nbsp;h, cbBTC &middot; RENDER &middot; USDT against USDC</dd>
+        <dt>Strategies</dt><dd>the terminal&rsquo;s three taker presets, plus a control built so that speed is an edge</dd>
+        <dt>Delays compared</dt><dd>0 &middot; 50 &middot; 100 &middot; 200 &middot; 400&nbsp;ms</dd>
+        <dt>Configurations</dt><dd><span data-fig="configs">171</span> measured: <span data-fig="baselineCount">18</span> at defaults, <span data-fig="sweepCount">135</span> in the sweep, <span data-fig="controlCount">18</span> of the control</dd>
+        <dt>Reproduce</dt><dd>one command, no database or keys, about 15&nbsp;s</dd>
+      </dl>
+    </section>
+
+    <section class="block" aria-labelledby="answer">
+      <h2 id="answer">The answer, market by market</h2>
+      <div class="prose">
+        <p>Each preset ran at its defaults (100&nbsp;USDC orders, 10&nbsp;bp slippage limit) over ten back-to-back 1.5-hour windows. The effect is P&amp;L at 0&nbsp;ms minus P&amp;L at 400&nbsp;ms in the same window: negative means the faster trader made less.</p>
+        <div class="scroll">
+          <table class="fields">
+            <thead><tr><th>Strategy</th><th class="num">P&amp;L at 0&nbsp;ms</th><th class="num">Effect per window</th><th class="num">Windows &minus;/+/tie</th><th class="num">Sign test p</th><th class="num">bp of turnover</th></tr></thead>
+            <tbody>
+              <tr class="group"><td colspan="6">cbBTC/USDC &middot; a book state every <span data-fig="cbBTC.gap">1,523</span>&nbsp;ms</td></tr>
+              <tr><td>Imbalance momentum</td><td class="num" data-fig="base.cbBTC.imb.B.pnl0">&minus;3,012.56</td><td class="num" data-fig="base.cbBTC.imb.B.mean">&minus;14.42</td><td class="num" data-fig="base.cbBTC.imb.B.signs">10&thinsp;/&thinsp;0&thinsp;/&thinsp;0</td><td class="num" data-fig="base.cbBTC.imb.B.p">0.0020</td><td class="num" data-fig="base.cbBTC.imb.B.bp">&minus;0.687</td></tr>
+              <tr><td>Momentum chase</td><td class="num" data-fig="base.cbBTC.mom.B.pnl0">&minus;16.96</td><td class="num" data-fig="base.cbBTC.mom.B.mean">&minus;1.64</td><td class="num" data-fig="base.cbBTC.mom.B.signs">9&thinsp;/&thinsp;0&thinsp;/&thinsp;1</td><td class="num" data-fig="base.cbBTC.mom.B.p">0.0039</td><td class="num" data-fig="base.cbBTC.mom.B.bp">&minus;50.553</td></tr>
+              <tr><td>Queue depletion</td><td class="num" data-fig="base.cbBTC.queue.B.pnl0">&minus;14.94</td><td class="num" data-fig="base.cbBTC.queue.B.mean">&minus;0.11</td><td class="num" data-fig="base.cbBTC.queue.B.signs">4&thinsp;/&thinsp;1&thinsp;/&thinsp;5</td><td class="num" data-fig="base.cbBTC.queue.B.p">0.375</td><td class="num" data-fig="base.cbBTC.queue.B.bp">&minus;0.982</td></tr>
+              <tr class="group"><td colspan="6">RENDER/USDC &middot; a book state every <span data-fig="RENDER.gap">1,520</span>&nbsp;ms</td></tr>
+              <tr><td>Imbalance momentum</td><td class="num" data-fig="base.RENDER.imb.B.pnl0">&minus;3,827.14</td><td class="num" data-fig="base.RENDER.imb.B.mean">&minus;49.42</td><td class="num" data-fig="base.RENDER.imb.B.signs">9&thinsp;/&thinsp;1&thinsp;/&thinsp;0</td><td class="num" data-fig="base.RENDER.imb.B.p">0.021</td><td class="num" data-fig="base.RENDER.imb.B.bp">&minus;2.602</td></tr>
+              <tr><td>Momentum chase</td><td class="num" data-fig="base.RENDER.mom.B.pnl0">&minus;151.48</td><td class="num" data-fig="base.RENDER.mom.B.mean">&minus;14.95</td><td class="num" data-fig="base.RENDER.mom.B.signs">8&thinsp;/&thinsp;1&thinsp;/&thinsp;1</td><td class="num" data-fig="base.RENDER.mom.B.p">0.039</td><td class="num" data-fig="base.RENDER.mom.B.bp">&minus;179.037</td></tr>
+              <tr><td>Queue depletion</td><td class="num" data-fig="base.RENDER.queue.B.pnl0">&minus;2,056.13</td><td class="num" data-fig="base.RENDER.queue.B.mean">&minus;174.83</td><td class="num" data-fig="base.RENDER.queue.B.signs">10&thinsp;/&thinsp;0&thinsp;/&thinsp;0</td><td class="num" data-fig="base.RENDER.queue.B.p">0.0020</td><td class="num" data-fig="base.RENDER.queue.B.bp">&minus;414.852</td></tr>
+              <tr class="group"><td colspan="6">USDT/USDC &middot; a book state every <span data-fig="USDT.gap">755</span>&nbsp;ms</td></tr>
+              <tr><td>Imbalance momentum</td><td class="num" data-fig="base.USDT.imb.B.pnl0">&minus;0.07</td><td class="num" data-fig="base.USDT.imb.B.mean">0.00</td><td class="num" data-fig="base.USDT.imb.B.signs">1&thinsp;/&thinsp;2&thinsp;/&thinsp;7</td><td class="num" data-fig="base.USDT.imb.B.p">1.000</td><td class="num" data-fig="base.USDT.imb.B.bp">0.002</td></tr>
+              <tr><td>Momentum chase</td><td class="num" data-fig="base.USDT.mom.B.pnl0">0.00</td><td class="num" data-fig="base.USDT.mom.B.mean">0.00</td><td class="num" data-fig="base.USDT.mom.B.signs">0&thinsp;/&thinsp;0&thinsp;/&thinsp;10</td><td class="num" data-fig="base.USDT.mom.B.p">1.000</td><td class="num" data-fig="base.USDT.mom.B.bp">&mdash;</td></tr>
+              <tr><td>Queue depletion</td><td class="num" data-fig="base.USDT.queue.B.pnl0">&minus;2.46</td><td class="num" data-fig="base.USDT.queue.B.mean">0.04</td><td class="num" data-fig="base.USDT.queue.B.signs">0&thinsp;/&thinsp;10&thinsp;/&thinsp;0</td><td class="num" data-fig="base.USDT.queue.B.p">0.0020</td><td class="num" data-fig="base.USDT.queue.B.bp">0.003</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note">Amounts in USDC. P&amp;L is summed over the ten windows; the effect is the mean over them. Momentum chase found no move to chase on USDT, which barely moves.</p>
+        <p>Three things are visible before any statistics. Every strategy lost money even with no delay at all, so the delay never decided whether a strategy works, only how much it lost. On cbBTC and RENDER the faster feed made the loss bigger in nearly every window. On USDT the faster feed made it smaller in every window for queue depletion &mdash; by <span data-fig="base.USDT.queue.B.bp">0.003</span>&nbsp;bp of what was traded.</p>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="grain">
+      <h2 id="grain">Why: the book has a grain</h2>
+      <div class="prose">
+        <p>A Manifest book is one on-chain account. Its state changes when a transaction touches it, and the recording keeps every state the RPC providers delivered. On all three markets each state sat in its own slot (<span data-fig="cbBTC.perSlot">1.00</span> states per slot on each), and the median gap between states was <span data-fig="cbBTC.gap">1,523</span>&nbsp;ms on cbBTC, <span data-fig="RENDER.gap">1,520</span>&nbsp;ms on RENDER and <span data-fig="USDT.gap">755</span>&nbsp;ms on USDT.</p>
+        <p>A delay shorter than that gap can only do one thing: show the previous state instead of the current one. That is what the runs show. At every delay from 50 to 400&nbsp;ms the strategy saw a different state than at 0&nbsp;ms on <span data-fig="cbBTC.shift50">100</span>% of steps, on every market. Between 50 and 100&nbsp;ms it saw a different state on <span data-fig="cbBTC.shift100">0.00</span>% of steps on cbBTC, and 400&nbsp;ms differed from 200&nbsp;ms on only <span data-fig="cbBTC.shift400">0.91</span>% of steps on cbBTC and <span data-fig="RENDER.shift400">1.35</span>% on RENDER &mdash; but on <span data-fig="USDT.shift400">31.18</span>% on USDT, whose book moves twice as fast.</p>
+        <p>So the comparison &ldquo;0 versus 400&nbsp;ms&rdquo; on cbBTC and RENDER is really &ldquo;the current state versus the one before it&rdquo;: about 1.5&nbsp;seconds of market time, not 400&nbsp;ms. The levels in between cannot be told apart by this data, however finely they are spaced; on all <span data-fig="slope.count">9</span> market and strategy pairs, 1, 10 and 100&nbsp;ms gave identical results (<span data-fig="slope.identical">9</span> of <span data-fig="slope.count">9</span>).</p>
+        <h3>A cost per 100&nbsp;ms is a choice of grid</h3>
+        <p>The terminal reports a &ldquo;cost of 100&nbsp;ms&rdquo; as the slope between the fastest and slowest level. Because almost all of the effect happens in the first step, the slope depends on where the grid ends. Over the whole recording, imbalance momentum on cbBTC gives <span data-fig="slope.cbBTC.imb.narrow">38.95</span>&nbsp;USDC per 100&nbsp;ms on a grid ending at 400&nbsp;ms and <span data-fig="slope.cbBTC.imb.wide">0.48</span> on one ending at <span data-fig="slope.cbBTC.imb.wideTo">60,000</span>&nbsp;ms; on RENDER, <span data-fig="slope.RENDER.imb.narrow">128.42</span> against <span data-fig="slope.RENDER.imb.wide">1.88</span>. Both are correct slopes. Neither is a price of 100&nbsp;ms, which is why the terminal prints the grid next to the number and names the levels the data cannot tell apart.</p>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="zero">
+      <h2 id="zero">What the 0&nbsp;ms row is</h2>
+      <div class="prose">
+        <p>At zero delay the strategy is filled against exactly the book it read. Its quote cannot move away before the order lands, so it never misses: across all <span data-fig="configs">171</span> configurations, <span data-fig="ordersAt0">1,366,194</span> orders at 0&nbsp;ms and <span data-fig="unfilledAt0">0</span> left unfilled. That is a property of the execution model, not of a trader. No real feed reaches the row; it is the reference the other rows are measured from.</p>
+        <p>The delayed rows show why being late was not worse here. In the sweep below, the average slippage at 400&nbsp;ms was negative &mdash; the order filled better than the price the strategy saw &mdash; in <span data-fig="sweep.slipNeg">81</span> of the <span data-fig="sweep.traded">120</span> configurations that traded at all. That fits a market that partly reverts within the 1.5&nbsp;seconds between states: a strategy that chases what it just saw does better arriving after part of the move has given back. It is consistent with the data; the data alone does not prove it.</p>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="sweep">
+      <h2 id="sweep">Changing the size and the limit</h2>
+      <div class="prose">
+        <p>The defaults could hide an effect, so every preset was rerun on every market with five order sizes (100, 1,000, 10,000, 100,000 and 1,000,000&nbsp;USDC) and three slippage limits (10, 2 and 1&nbsp;bp): <span data-fig="sweepCount">135</span> configurations on the independent 1.5-hour windows.</p>
+        <ul>
+          <li>The faster trader came out ahead on average in <span data-fig="sweep.positiveMean">18</span> of them. A sign test across windows found a consistent direction in <span data-fig="sweep.sigNeg">49</span> configurations where speed lost and <span data-fig="sweep.sigPos">9</span> where it won.</li>
+          <li>All <span data-fig="sweep.sigPos">9</span> wins are queue depletion on USDT. At 1,000,000&nbsp;USDC orders the faster trader lost <span data-fig="usdtBig.mean">198.69</span>&nbsp;USDC less per window, in every window, out of a total loss of <span data-fig="usdtBig.pnl0">&minus;97,752.37</span>: <span data-fig="usdtBig.bp">0.008</span>&nbsp;bp of turnover.</li>
+          <li>The largest win outside USDT was imbalance momentum on RENDER at 10,000&nbsp;USDC and a 2&nbsp;bp limit: <span data-fig="cand.mean">170.02</span>&nbsp;USDC per window on average, faster ahead in <span data-fig="cand.signs">7 of 10</span> windows (p&nbsp;=&nbsp;<span data-fig="cand.p">0.344</span>, mean over its standard error <span data-fig="cand.t">1.17</span>). With a 1&nbsp;bp limit the same strategy gives <span data-fig="cand1.mean">&minus;18.21</span>.</li>
+          <li>Size runs out as a lever. On cbBTC the results stop changing above 10,000&nbsp;USDC and on RENDER above 100,000: within the slippage limit those books hold less than that, so a bigger order fills the same levels. The USDT book is deep enough that size keeps mattering.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="control">
+      <h2 id="control">A control where speed should win</h2>
+      <div class="prose">
+        <p>If the setup simply could not reward speed, the result above would say nothing. So the study adds a strategy built to profit from it: take a quote that sits on the wrong side of where the book just was &mdash; an ask at or below the previous state&rsquo;s mid, less an edge of 0, 2 or 10&nbsp;bp, or a bid above it &mdash; before anyone else does. A trader with no delay takes it from the book it read; a late one finds it gone. It runs only in the study, not in the terminal.</p>
+        <div class="scroll">
+          <table class="fields">
+            <thead><tr><th>Market &middot; edge</th><th class="num">Effect per window</th><th class="num">Windows &minus;&thinsp;/&thinsp;+&thinsp;/&thinsp;tie</th><th class="num">Sign test p</th></tr></thead>
+            <tbody>
+              <tr><td>cbBTC &middot; 0&nbsp;bp</td><td class="num" data-fig="ctrl.cbBTC.0.B.mean">&minus;0.10</td><td class="num" data-fig="ctrl.cbBTC.0.B.signs">2&thinsp;/&thinsp;4&thinsp;/&thinsp;4</td><td class="num" data-fig="ctrl.cbBTC.0.B.p">0.688</td></tr>
+              <tr><td>cbBTC &middot; 2&nbsp;bp</td><td class="num" data-fig="ctrl.cbBTC.2.B.mean">&minus;0.10</td><td class="num" data-fig="ctrl.cbBTC.2.B.signs">2&thinsp;/&thinsp;3&thinsp;/&thinsp;5</td><td class="num" data-fig="ctrl.cbBTC.2.B.p">1.000</td></tr>
+              <tr><td>cbBTC &middot; 10&nbsp;bp</td><td class="num" data-fig="ctrl.cbBTC.10.B.mean">0.00</td><td class="num" data-fig="ctrl.cbBTC.10.B.signs">1&thinsp;/&thinsp;3&thinsp;/&thinsp;6</td><td class="num" data-fig="ctrl.cbBTC.10.B.p">0.625</td></tr>
+              <tr><td>RENDER &middot; 0&nbsp;bp</td><td class="num" data-fig="ctrl.RENDER.0.B.mean">&minus;0.27</td><td class="num" data-fig="ctrl.RENDER.0.B.signs">6&thinsp;/&thinsp;3&thinsp;/&thinsp;1</td><td class="num" data-fig="ctrl.RENDER.0.B.p">0.508</td></tr>
+              <tr><td>RENDER &middot; 2&nbsp;bp</td><td class="num" data-fig="ctrl.RENDER.2.B.mean">&minus;0.27</td><td class="num" data-fig="ctrl.RENDER.2.B.signs">5&thinsp;/&thinsp;3&thinsp;/&thinsp;2</td><td class="num" data-fig="ctrl.RENDER.2.B.p">0.727</td></tr>
+              <tr><td>RENDER &middot; 10&nbsp;bp</td><td class="num" data-fig="ctrl.RENDER.10.B.mean">&minus;0.39</td><td class="num" data-fig="ctrl.RENDER.10.B.signs">5&thinsp;/&thinsp;3&thinsp;/&thinsp;2</td><td class="num" data-fig="ctrl.RENDER.10.B.p">0.727</td></tr>
+              <tr><td>USDT &middot; 0&nbsp;bp</td><td class="num" data-fig="ctrl.USDT.0.B.mean">0.02</td><td class="num" data-fig="ctrl.USDT.0.B.signs">2&thinsp;/&thinsp;8&thinsp;/&thinsp;0</td><td class="num" data-fig="ctrl.USDT.0.B.p">0.109</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note">USDC per 1.5-hour window, 100&nbsp;USDC orders. On USDT a 2 or 10&nbsp;bp edge never appeared, so those rows are empty and left out. On the overlapping 6-hour windows (&minus;&thinsp;/&thinsp;+&thinsp;/&thinsp;tie) the 0&nbsp;bp row on USDT reads <span data-fig="ctrl.USDT.0.A.signs">0&thinsp;/&thinsp;10&thinsp;/&thinsp;0</span>, for speed, and RENDER at 10&nbsp;bp reads <span data-fig="ctrl.RENDER.10.A.signs">10&thinsp;/&thinsp;0&thinsp;/&thinsp;0</span>, against it; those windows overlap, so neither count is ten samples.</p>
+        <p>Even the strategy designed to reward speed did not reliably do so on cbBTC or RENDER. The only market that leans its way is again USDT, again by cents. The stale quotes it hunts are rarely there long enough, at this grain, for zero delay to be the difference.</p>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="stats">
+      <h2 id="stats">Three statistics, three questions</h2>
+      <div class="prose">
+        <ul>
+          <li><strong>Is the effect bigger than the noise between windows?</strong> The bar set before the first run: the effect must exceed three standard deviations of P&amp;L across windows. It did in <span data-fig="all.clearsBase">0</span> of <span data-fig="configs">171</span> configurations.</li>
+          <li><strong>Can its size be predicted for a new window?</strong> Three standard deviations of the per-window effect itself: <span data-fig="all.clearsDiff">0</span> of <span data-fig="configs">171</span>. The effect varies from window to window about as much as it is large.</li>
+          <li><strong>Is there an effect, and which way?</strong> An exact sign test on the independent windows. This is the one that answers: yes, on several strategies, and on cbBTC and RENDER it points against speed.</li>
+        </ul>
+        <p>The overlapping 6-hour windows of the first measurement are reported in the published results too, but the sign test and standard errors are read on the back-to-back 1.5-hour windows, because ten windows that share five hours of six are not ten samples.</p>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="not">
+      <h2 id="not">What this does not say</h2>
+      <ul class="limits">
+        <li>That speed does not pay on Solana. This is one venue, Manifest, over one night, 11&ndash;12 September 2026.</li>
+        <li>Anything about makers. The strategies only take liquidity; without a trade tape, queue position cannot be modelled honestly.</li>
+        <li>Anything finer than a book state. A venue or a recording with more states per second could show what this one cannot &mdash; and USDT, the finest-grained market here, is the one where speed leaned positive.</li>
+        <li>That the fills are real. Orders are filled against the recorded top 15 levels and leave the book as it was; a real order would move it.</li>
+      </ul>
+    </section>
+
+    <section class="block" aria-labelledby="reproduce">
+      <h2 id="reproduce">Reproduce it</h2>
+      <div class="prose">
+        <p>The study reads only the published CSV files of <a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases/tag/dataset-v1">release dataset-v1</a>, checks them against <code>SHA256SUMS</code>, and runs the terminal&rsquo;s own backtest engine on them. Node 22 or later and pnpm:</p>
+        <pre>git clone https://github.com/quantedgeterminal/QuantEdge-Terminal
+cd QuantEdge-Terminal &amp;&amp; pnpm install
+gh release download dataset-v1 -R quantedgeterminal/QuantEdge-Terminal \
+  -p '*.csv.gz' -p SHA256SUMS -D data/dataset-v1
+pnpm --filter @quantedge/study study --data data/dataset-v1 --out study.json</pre>
+        <p>The output is byte-for-byte the <a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/blob/main/apps/study/results/dataset-v1.json">results file</a> in the repository, and every number on this page is read from it; a test fails the build if the two disagree. The code is <a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/tree/main/apps/study">apps/study</a>, under the Apache License 2.0.</p>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="corrections">
+      <h2 id="corrections">Corrections to figures published earlier</h2>
+      <div class="prose">
+        <p>The first write-up of this measurement, on the main page and in the README, was produced by scripts that were not kept. Rewriting them against the open dataset reproduced the counts, the grain, the zero-delay row and the sweep&rsquo;s largest candidate exactly, and changed four statements:</p>
+        <ul>
+          <li>&ldquo;180 configurations&rdquo;: the sweep as recorded had 90 (three presets, five sizes, three limits, two markets). This study runs <span data-fig="sweepCount">135</span>, adding USDT.</li>
+          <li>&ldquo;Average slippage at 400&nbsp;ms is &minus;1 to &minus;9&nbsp;bp&rdquo;: negative in <span data-fig="sweep.slipNeg">81</span> of <span data-fig="sweep.traded">120</span> configurations that traded, ranging from <span data-fig="sweep.slipMin">&minus;569.26</span> to <span data-fig="sweep.slipMax">3.94</span>&nbsp;bp.</li>
+          <li>&ldquo;P&amp;L at 0&nbsp;ms is lower in 10 of 10 windows&rdquo; and &ldquo;did not make more money with a faster feed&rdquo;: true of cbBTC and RENDER, not of queue depletion on USDT, where the faster trader lost less in every window.</li>
+          <li>&ldquo;400&nbsp;ms differs from 200&nbsp;ms on 0.87% of steps&rdquo;: <span data-fig="cbBTC.shift400">0.91</span>% on cbBTC, <span data-fig="RENDER.shift400">1.35</span>% on RENDER, <span data-fig="USDT.shift400">31.18</span>% on USDT.</li>
+        </ul>
+        <p>The conclusion did not change. Its scope is now stated per market.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <span class="mono">QuantEdge Terminal</span>
+    <span>Every number on this page is read from the published study results.</span>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/tree/main/apps/study">Code</a>
+      <a href="../dataset/">Dataset</a>
+      <a href="../app/">Open the terminal</a>
+    </nav>
+  </footer>
+
+</div>
+</body>
+</html>

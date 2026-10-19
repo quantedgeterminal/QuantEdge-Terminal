@@ -52,18 +52,22 @@ Three screens:
 - **No provider is claimed to match any number here.** No DoubleZero figures, no
   vendor benchmarks. Takers only — makers cannot be modelled honestly without a
   trade tape.
-- **On this venue the measured cost of latency is not positive, and the product
-  says so.** Over the frozen reference (15.57 h, three Manifest markets, the three
-  shipped presets), P&L at 0 ms is *lower* than at 400 ms in 10 of 10 windows. The
-  result survives 180 configurations — five order sizes from 100 to 1,000,000 USDC,
-  three slippage tolerances, two delay grids, two window sets — and a fourth preset
-  built so that speed would be an edge by construction. The mechanism is in two
-  measured numbers: average slippage at 400 ms is **−1…−9 bp**, i.e. the later order
-  fills *better* (the market mean-reverts over the ~1.5 s between book states), and
-  the 0 ms row never leaves an order unfilled *by construction*, because a strategy
-  with no delay is filled against the very book it read. A trader cannot occupy that
-  row. Scope of the claim: Manifest, 11–12 September, taker strategies, this
-  execution model — it does **not** say that speed fails to pay on Solana.
+- **On this venue a faster feed did not pay, and the product says so.** Over the
+  frozen reference (15.57 h, three Manifest markets, the three shipped presets),
+  none of the strategies made money at any delay. On cbBTC and RENDER the
+  zero-delay trader lost *more* than the one 400 ms late, in nearly every window;
+  on USDT, whose book changes twice as often, queue depletion lost slightly less
+  with the faster feed — in every window, by 0.003 bp of turnover. The result holds
+  across 171 configurations (five order sizes, three slippage limits, every market,
+  and a control strategy built so that speed would be an edge); none cleared the
+  noise bar set in advance. The mechanism is the grain of the data: a book state on
+  cbBTC and RENDER lasts about 1.5 s, so every delay from 50 to 400 ms sees the same
+  earlier state, and the 0 ms row — filled against the very book it read, so it
+  never misses — is the execution model's baseline, not a place a trader can be.
+  Scope: Manifest, 11–12 September, taker strategies, this execution model — it
+  does **not** say that speed fails to pay on Solana. Method, every number and the
+  code that reproduces them:
+  [research page](https://quantedgeterminal.github.io/QuantEdge-Terminal/research/).
 
 Not in the product by decision: order execution, wallets, custody, accounts and
 authentication, user code or a strategy DSL, any monetisation, AMMs as a book
@@ -80,7 +84,8 @@ apps/collector      two WebSocket subscriptions per market → book_updates, arr
 apps/api            Hono: markets, coverage, runs, strategies, latency, arrivals, SSE stream
 apps/web            React 19 + Vite 7: run, result, terminal, compare screens
 apps/dataset        read-only export of a recorded window → Parquet + CSV.gz + SHA256SUMS
-apps/landing        static landing page and the dataset field page, served by Pages
+apps/study          the latency study, rerun from the published dataset files alone
+apps/landing        static landing page, dataset and research pages, served by Pages
 ```
 
 Stack: pnpm workspaces · TypeScript 5.9 strict · Biome 2 · Vitest 3 · Hono 4 ·
@@ -201,6 +206,21 @@ pnpm --filter @quantedge/dataset export \
 
 It reads `DATABASE_URL`, runs in one read-only transaction, and refuses a window
 with a gap in coverage or a channel that is not real.
+
+## Research
+
+[Does speed pay on a Solana on-chain order book?](https://quantedgeterminal.github.io/QuantEdge-Terminal/research/)
+— the latency measurement written up with its method and limits. Every number on
+the page is read from `apps/study/results/dataset-v1.json`, and the study reruns
+from the release files alone, with no database or keys:
+
+```
+gh release download dataset-v1 -R quantedgeterminal/QuantEdge-Terminal   -p '*.csv.gz' -p SHA256SUMS -D data/dataset-v1
+pnpm --filter @quantedge/study study --data data/dataset-v1 --out study.json
+```
+
+The output matches the committed results file byte for byte; a test fails the
+build if the page and the file disagree.
 
 ## License
 

@@ -156,13 +156,14 @@
 
     <section class="block" aria-labelledby="found">
       <div>
-        <p class="figure">10 of 10</p>
-        <p class="figure-note">windows where P&amp;L at 0&nbsp;ms was lower than at 400&nbsp;ms</p>
+        <p class="figure">1.5&nbsp;s</p>
+        <p class="figure-note">between book states on cbBTC and RENDER: every delay from 50 to 400&nbsp;ms sees the same earlier state</p>
       </div>
       <div class="prose">
         <h2 id="found" class="label">What it found on Manifest</h2>
-        <p>Over 15.57 hours of recorded books on three Manifest markets (cbBTC, RENDER and USDT, each against USDC), the three shipped strategies did not make more money with a faster feed. The result held across 180 configurations: five order sizes from 100 to 1,000,000 USDC, three slippage tolerances, two delay grids, two window sets, plus a fourth strategy built so that speed would be an edge.</p>
-        <p>The mechanism is two measured numbers. A book state lasts about 1.5&nbsp;s, so every non-zero delay sees the same earlier state. Over that horizon the market mean-reverts, and average slippage at 400&nbsp;ms is <span class="mono">&minus;1 to &minus;9&nbsp;bp</span>: the later order fills better. The 0&nbsp;ms row is the execution model&rsquo;s baseline, where the strategy fills against the very book it read; no trader can occupy it.</p>
+        <p>Over 15.57 hours of recorded books on three Manifest markets (cbBTC, RENDER and USDT, each against USDC), none of the three shipped strategies made money at any delay, and a faster feed did not help on cbBTC or RENDER: the zero-delay trader lost more in nearly every window. On USDT, whose book changes twice as often, the faster feed lost slightly less &mdash; consistently, but by 0.003&nbsp;bp of turnover. The result holds across 171 configurations: five order sizes from 100 to 1,000,000 USDC, three slippage limits, every market, and a control strategy built so that speed would be an edge.</p>
+        <p>The mechanism is the grain of the data. A delay shorter than a book state can only show the previous state, so &ldquo;0 versus 400&nbsp;ms&rdquo; really compares the current state with the one before it. In 81 of the 120 configurations that traded, the late order filled better than the price it saw. The 0&nbsp;ms row is the execution model&rsquo;s baseline, where the strategy fills against the very book it read; no trader can occupy it.</p>
+        <p>The method, every number and the code that reproduces them from the open dataset: <a href="./research/">Does speed pay on a Solana order book?</a></p>
         <div class="scope">
           <p class="label">What this does not say</p>
           <p>Manifest, 11&ndash;12 September 2026, taker strategies, this execution model. It does not say that speed fails to pay on Solana.</p>
@@ -227,6 +228,7 @@
     <nav class="foot-links" aria-label="Footer">
       <a href="https://github.com/quantedgeterminal/QuantEdge-Terminal">Source</a>
       <a href="https://github.com/quantedgeterminal/QuantEdge-Terminal/releases">Releases</a>
+      <a href="./research/">Research</a>
       <a href="./dataset/">Dataset</a>
       <a href="./app/">Open the terminal</a>
     </nav>

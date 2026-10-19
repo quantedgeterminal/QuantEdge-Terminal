@@ -361,7 +361,8 @@ footer {
 
 .foot-links {
   display: flex;
-  gap: 24px;
+  flex-wrap: wrap;
+  gap: 8px 24px;
   font-family: var(--mono);
 }
 
