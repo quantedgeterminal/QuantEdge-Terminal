@@ -37,6 +37,11 @@ Three screens:
   compare screen shows exactly that rather than implying a measurement.
 - **A run over incomplete data does not start.** The API names the missing
   ranges instead of silently computing across gaps.
+- **Live recording on the hosted demo is intermittent.** The free host sleeps
+  between keep-alive pings, so the terminal and compare screens are often
+  silent, and recent periods come in short segments. The frozen reference
+  window, the dataset and the study are unaffected
+  (see [Deploying for free](#deploying-for-free)).
 - **A delay grid finer than the data says so.** Book states arrive at a rate the
   market sets, so a delay shorter than the gap between them looks at the same
   state as the faster level and returns the same row — by construction, not
@@ -138,10 +143,15 @@ project site; the database stays on Supabase.
   the site root, so the root `404.html` is the app shell and deep links keep working.
 - `.github/workflows/keepalive.yml` and `keepalive-b.yml` hit `/health`: a free
   service sleeps after 15 minutes of silence, and a sleeping collector is a gap
-  in the dataset. GitHub runs a `*/5` schedule every 12-20 minutes in practice,
-  so there are two schedules offset by 2 minutes and each run pings three times
-  over 8 minutes. Gaps that still happen (deploys, misses) are recorded as gaps,
-  never papered over.
+  in the dataset. There are two schedules offset by 2 minutes, and each run pings
+  three times over 8 minutes. In September GitHub ran a `*/5` schedule every
+  12-20 minutes and this kept the collector up 99.9 % of the time. Since
+  October it runs the same schedule 3-8 times a day, so the service is awake
+  for roughly half an hour after each run and asleep in between: **the hosted
+  collector now records about 6-10 % of each day.** This is a hosting limit,
+  not a channel failure. Both channels go silent at the same second, and every
+  gap is recorded as a gap, never papered over. A deployment that needs
+  continuous recording should run on a host that does not sleep.
 - `.github/workflows/ci.yml` runs `pnpm gate` on every push.
 - Switching the provider behind a channel is `RPC_A_NAME` + `RPC_A_WS_URL` in the
   dashboard, then `pnpm --filter @quantedge/collector seed`: the two names in the
